@@ -1,23 +1,18 @@
+# Grafana 12: provisioning failure = startup failure. Only provision valid, built-in types (prometheus, loki).
 apiVersion: 1
 
 datasources:
   - name: Prometheus
     type: prometheus
+    uid: prometheus
     access: proxy
-    url: "{{ grafana_datasource_prometheus_url | default('http://' + prometheus_server + ':9090') }}"
+    url: "{{ grafana_datasource_prometheus_url | default('http://127.0.0.1:9090') }}"
     isDefault: true
     editable: true
 
   - name: Loki
     type: loki
+    uid: loki
     access: proxy
-    url: "{{ grafana_datasource_loki_url | default('http://' + loki_server + ':3100') }}"
-    editable: true
-
-  - name: Alertmanager
-    type: alertmanager
-    access: proxy
-    url: "{{ grafana_datasource_alertmanager_url | default('http://' + prometheus_server + ':9093') }}"
-    jsonData:
-      implementation: prometheus
+    url: "{{ grafana_datasource_loki_url | default('http://127.0.0.1:3100') }}"
     editable: true

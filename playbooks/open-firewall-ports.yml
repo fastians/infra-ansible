@@ -25,7 +25,7 @@
   hosts: backend
   become: yes
   vars:
-    monitor_ip: "168.107.19.241"
+    monitor_ip: "{{ hostvars[groups['monitoring'][0]].ansible_host }}"
     backend_ports: [9100, 8000, 8001, 8002]
   tasks:
     - name: Ensure UFW is installed
@@ -45,7 +45,7 @@
   hosts: salome
   become: yes
   vars:
-    monitor_ip: "168.107.19.241"
+    monitor_ip: "{{ hostvars[groups['monitoring'][0]].ansible_host }}"
     salome_ports: [9100, 8000]
   tasks:
     - name: Ensure UFW is installed

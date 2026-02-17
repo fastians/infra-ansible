@@ -4,8 +4,11 @@ After=network.target
 
 [Service]
 User=loki
+WorkingDirectory=/var/lib/loki
 ExecStart={{ loki_binary_path }} -config.file=/etc/loki/config.yml
 Restart=always
+StandardOutput=journal
+StandardError=journal
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target

@@ -1,0 +1,15 @@
+[Unit]
+Description=Alertmanager to Telegram webhook bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/alertmanager/telegram-webhook.env
+Environment=PORT=5001
+ExecStart=/usr/bin/python3 {{ alertmanager_config_dir }}/telegram-webhook.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

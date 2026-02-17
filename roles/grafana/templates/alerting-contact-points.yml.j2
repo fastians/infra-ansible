@@ -1,0 +1,13 @@
+apiVersion: 1
+
+# Default contact point. Set grafana_alert_emails in group_vars/monitoring.yml for real recipients.
+# Grafana 12 requires addresses to be non-empty or provisioning fails.
+contactPoints:
+  - orgId: 1
+    name: Default
+    receivers:
+      - uid: default-receiver
+        type: email
+        disableResolveMessage: false
+        settings:
+          addresses: "{{ grafana_alert_emails | default('noreply@localhost') }}"

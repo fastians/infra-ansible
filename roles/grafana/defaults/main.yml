@@ -1,5 +1,8 @@
 ---
 # When Grafana runs on the same host as Prometheus/Loki (e.g. monitoring server), use localhost.
-# Override in group_vars when Grafana runs elsewhere.
 prometheus_server: "localhost"
 loki_server: "localhost"
+
+# Grafana admin password for API (datasources added via API because Grafana 12 fails on file provisioning).
+# Override in group_vars/monitoring.yml or vault; default 'admin' for first login.
+grafana_admin_password: "admin"

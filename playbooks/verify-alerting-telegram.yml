@@ -1,0 +1,42 @@
+---
+# Check that Alertmanager and Telegram webhook are set up so alerts reach Telegram.
+# Run: ansible-playbook -i inventories/prod/hosts.ini playbooks/verify-alerting-telegram.yml
+
+- name: Verify alerting and Telegram on monitor
+  hosts: monitoring
+  become: yes
+  tasks:
+    - name: Check telegram-webhook service is active
+      systemd:
+        name: telegram-webhook
+      register: tw
+      failed_when: false
+
+    - name: Show telegram-webhook status
+      debug:
+        msg: "telegram-webhook: {{ tw.status.ActiveState | default('not found') }}. If not active, run: ansible-playbook site.yml --limit monitoring-server -e @extra_vars.yml --tags alertmanager (with token/chat_id in extra_vars.yml)"
+      when: tw.status is defined
+
+    - name: Check env file has token and chat_id (no secrets printed)
+      shell: |
+        [ -f /etc/alertmanager/telegram-webhook.env ] && \
+        grep -q 'TELEGRAM_BOT_TOKEN=.' /etc/alertmanager/telegram-webhook.env && \
+        grep -q 'TELEGRAM_CHAT_ID=.' /etc/alertmanager/telegram-webhook.env && echo ok || echo missing
+      register: env_check
+      changed_when: false
+
+    - name: Env file check
+      debug:
+        msg: "{{ env_check.stdout }}. If 'missing', set alertmanager_telegram_bot_token and alertmanager_telegram_chat_id in extra_vars.yml and run --tags alertmanager."
+
+    - name: Check webhook port listening
+      wait_for:
+        host: 127.0.0.1
+        port: 5001
+        timeout: 1
+      register: port_check
+      failed_when: false
+
+    - name: Webhook listener
+      debug:
+        msg: "Port 5001 (webhook): {{ 'listening' if port_check.state is defined and port_check.state == 'started' else 'not listening - start telegram-webhook' }}"

@@ -13,7 +13,7 @@
   apt:
     upgrade: dist
   become: yes
-  when: (root_free_kb.stdout | int) * 1024 > (apt_upgrade_min_free_bytes | default(536870912) | int)
+  when: not (skip_apt_upgrade | default(false) | bool) and (root_free_kb.stdout | int) * 1024 > (apt_upgrade_min_free_bytes | default(536870912) | int)
   ignore_errors: true
   register: apt_upgrade_result
 

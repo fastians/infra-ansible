@@ -11,13 +11,14 @@ BRANCH=${2:-main}
 if [ -z "$SERVICE" ]; then
     echo "Usage: ./deploy <service> [branch]"
     echo ""
-    echo "Services:"
-    echo "  - backendserver"
-    echo "  - geoserver"
-    echo "  - llmserver"
-    echo "  - salomeserver"
+    echo "Services: backendserver, geoserver, llmserver, salomeserver"
     echo ""
-    echo "Example: ./deploy backendserver main"
+    echo "Examples:"
+    echo "  ./deploy backendserver main"
+    echo "  ./deploy geoserver staging"
+    echo "  Rollback: ./deploy <service> <previous_branch>   (e.g. ./deploy geoserver main)"
+    echo ""
+    echo "See docs/DEPLOYMENT.md for rollback and safety."
     exit 1
 fi
 

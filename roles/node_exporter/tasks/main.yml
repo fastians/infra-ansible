@@ -47,11 +47,12 @@
 
       [Service]
       User=node_exporter
-      ExecStart=/usr/local/bin/node_exporter
+      ExecStart=/usr/local/bin/node_exporter --web.listen-address=0.0.0.0:9100
 
       [Install]
       WantedBy=default.target
   become: yes
+  notify: restart node_exporter
 
 - name: Start node exporter
   systemd:

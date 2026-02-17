@@ -9,6 +9,7 @@ config_files/env/*.env
 # Secrets
 **/secrets.yml
 **/secrets.example.yml
+extra_vars.yml
 
 # Backups
 backups/

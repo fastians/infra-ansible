@@ -1,6 +1,9 @@
 global:
   scrape_interval: 15s
 
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
 alerting:
   alertmanagers:
     - static_configs:
@@ -79,6 +82,7 @@ scrape_configs:
         labels:
           service: {{ item.service }}
           instance: {{ item.instance }}
+          target: "{{ item.target }}"
 {% endfor %}
 {% else %}
 {% for host in groups.get('backend', []) %}
@@ -86,19 +90,23 @@ scrape_configs:
         labels:
           service: backendserver
           instance: backend
+          target: "{{ host }}:8000"
       - targets: ['{{ host }}:8001']
         labels:
           service: geoserver
           instance: backend
+          target: "{{ host }}:8001"
       - targets: ['{{ host }}:8002']
         labels:
           service: llmserver
           instance: backend
+          target: "{{ host }}:8002"
 {% endfor %}
 {% for host in groups.get('salome', []) %}
       - targets: ['{{ host }}:8000']
         labels:
           service: salomeserver
           instance: salome
+          target: "{{ host }}:8000"
 {% endfor %}
 {% endif %}

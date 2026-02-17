@@ -1,0 +1,220 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Demo overview",
+      "type": "dashboard",
+      "uid": "lab-demo-overview"
+    },
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Logs & overview",
+      "type": "dashboard",
+      "uid": "lab-logs-overview"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Fraction of time the service was up in the last 7 days. Target typically 99%+.",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value_and_name",
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "red", "value": null },
+          { "color": "yellow", "value": 99 },
+          { "color": "green", "value": 99.9 }
+        ]}
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "avg_over_time(up{job=\"fastapi\",service=\"backendserver\"}[7d]) * 100",
+          "legendFormat": "backendserver",
+          "refId": "A"
+        }
+      ],
+      "title": "Backend – 7d availability %",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "7-day availability. Target 99%+.",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value_and_name",
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "red", "value": null },
+          { "color": "yellow", "value": 99 },
+          { "color": "green", "value": 99.9 }
+        ]}
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "avg_over_time(up{job=\"fastapi\",service=\"geoserver\"}[7d]) * 100",
+          "legendFormat": "geoserver",
+          "refId": "A"
+        }
+      ],
+      "title": "GeoServer – 7d availability %",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "7-day availability. Target 99%+.",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value_and_name",
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "red", "value": null },
+          { "color": "yellow", "value": 99 },
+          { "color": "green", "value": 99.9 }
+        ]}
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "avg_over_time(up{job=\"fastapi\",service=\"llmserver\"}[7d]) * 100",
+          "legendFormat": "llmserver",
+          "refId": "A"
+        }
+      ],
+      "title": "LLM – 7d availability %",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "7-day availability. Target 99%+.",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value_and_name",
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "red", "value": null },
+          { "color": "yellow", "value": 99 },
+          { "color": "green", "value": 99.9 }
+        ]}
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "avg_over_time(up{job=\"fastapi\",service=\"salomeserver\"}[7d]) * 100",
+          "legendFormat": "salomeserver",
+          "refId": "A"
+        }
+      ],
+      "title": "Salome – 7d availability %",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Public HTTP(S) availability over 7 days (Blackbox probes).",
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 4 },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value_and_name",
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "red", "value": null },
+          { "color": "yellow", "value": 99 },
+          { "color": "green", "value": 99.9 }
+        ]}
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "avg_over_time(probe_success{job=\"blackbox_http_probe\"}[7d]) * 100",
+          "legendFormat": "{{ instance }}",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP(S) endpoints – 7d availability %",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Availability over time (rolling 1h window). Drop = incident or deployment.",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "id": 6,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "avg_over_time(up{job=\"fastapi\"}[1h]) * 100",
+          "legendFormat": "{{ service }}",
+          "refId": "A"
+        }
+      ],
+      "title": "FastAPI services – availability % (1h rolling)",
+      "type": "timeseries"
+    },
+    {
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 16 },
+      "id": 7,
+      "options": {
+        "content": "**SLO visibility** – 7d availability and rolling trend. When alerts fire, use runbooks in repo: docs/RUNBOOKS.md. Target: 99%+ availability per service.",
+        "mode": "markdown"
+      },
+      "title": "Runbooks & target",
+      "type": "text"
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["lab", "slo", "availability"],
+  "templating": { "list": [] },
+  "time": { "from": "now-7d", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "SLO overview",
+  "uid": "lab-slo-overview",
+  "version": 1,
+  "weekStart": ""
+}

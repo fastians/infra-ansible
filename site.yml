@@ -2,17 +2,19 @@
 # Main site playbook for lab infrastructure
 # Monitor server (brain + probe) | Backend/Salome = app servers only.
 
+# Run only what changed: --tags alerts | alertmanager | grafana | prometheus | loki | blackbox_exporter | common
+# --tags alerts = prometheus + alertmanager only (no Grafana reinstall)
 - name: Monitor Server (brain + probe)
   hosts: monitoring
   become: yes
   roles:
-    - common
-    - node_exporter
-    - prometheus
-    - loki
-    - grafana
-    - alertmanager
-    - blackbox_exporter
+    - { role: common, tags: [common] }
+    - { role: node_exporter, tags: [node_exporter] }
+    - { role: prometheus, tags: [prometheus, alerts] }
+    - { role: loki, tags: [loki] }
+    - { role: grafana, tags: [grafana] }
+    - { role: alertmanager, tags: [alertmanager, alerts] }
+    - { role: blackbox_exporter, tags: [blackbox_exporter] }
 
 - name: Application Servers (backend + salome)
   hosts: backend,salome

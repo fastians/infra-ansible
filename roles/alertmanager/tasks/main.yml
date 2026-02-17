@@ -75,6 +75,40 @@
   become: yes
   notify: restart alertmanager
 
+- name: Install Telegram webhook bridge script
+  copy:
+    src: telegram-webhook.py
+    dest: "{{ alertmanager_config_dir }}/telegram-webhook.py"
+    owner: "{{ alertmanager_user }}"
+    group: "{{ alertmanager_group }}"
+    mode: '0755'
+  become: yes
+
+- name: Deploy Telegram webhook env (token and chat_id)
+  template:
+    src: telegram-webhook.env.j2
+    dest: "{{ alertmanager_config_dir }}/telegram-webhook.env"
+    owner: "{{ alertmanager_user }}"
+    group: "{{ alertmanager_group }}"
+    mode: '0600'
+  become: yes
+  when: alertmanager_telegram_bot_token | default('') | length > 0 and alertmanager_telegram_chat_id | default('') | length > 0
+
+- name: Deploy Telegram webhook systemd service
+  template:
+    src: telegram-webhook.service.j2
+    dest: /etc/systemd/system/telegram-webhook.service
+  become: yes
+
+- name: Start Telegram webhook bridge
+  systemd:
+    name: telegram-webhook
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: yes
+  when: alertmanager_telegram_bot_token | default('') | length > 0 and alertmanager_telegram_chat_id | default('') | length > 0
+
 - name: Create Alertmanager systemd service
   template:
     src: alertmanager.service.j2

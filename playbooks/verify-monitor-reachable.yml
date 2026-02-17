@@ -1,0 +1,163 @@
+---
+# Check monitoring server: services running, listening on 0.0.0.0, UFW allows ports.
+# Run: ansible-playbook -i inventories/prod/hosts.ini playbooks/verify-monitor-reachable.yml
+
+- name: Verify monitor services and firewall
+  hosts: monitoring
+  become: yes
+  tasks:
+    - name: Ensure Prometheus is running
+      systemd:
+        name: prometheus
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+    - name: Check if Grafana package is installed
+      command: dpkg -l grafana
+      register: grafana_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Check if Grafana service exists
+      systemd:
+        name: grafana-server
+      register: grafana_service
+      failed_when: false
+
+    - name: Ensure Grafana is running (if installed)
+      systemd:
+        name: grafana-server
+        state: started
+        enabled: yes
+        daemon_reload: yes
+      when: grafana_service.status is defined and grafana_service.status.ActiveState is defined
+
+    - name: Check if Blackbox Exporter service exists
+      systemd:
+        name: blackbox_exporter
+      register: blackbox_service
+      failed_when: false
+
+    - name: Ensure Blackbox Exporter is running (if installed)
+      systemd:
+        name: blackbox_exporter
+        state: started
+        enabled: yes
+        daemon_reload: yes
+      when: blackbox_service.status is defined and blackbox_service.status.ActiveState is defined
+
+    - name: Ensure UFW allows monitoring ports
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop: [22, 3000, 9090, 3100, 9093, 9115, 9100]
+
+    - name: Check what is listening on monitoring ports
+      command: ss -tlnp | grep -E ':(3000|9090|9115|3100|9093|9100)'
+      register: ss_monitoring
+      changed_when: false
+      failed_when: false
+
+    - name: Show monitoring port listeners
+      debug:
+        msg:
+          - "Port listeners:"
+          - "{{ ss_monitoring.stdout_lines | default(['No listeners found']) }}"
+          - ""
+          - "Grafana installed: {{ 'YES' if grafana_installed.rc == 0 else 'NO - run: ansible-playbook -i inventories/prod/hosts.ini site.yml --limit monitoring-server' }}"
+          - "Blackbox installed: {{ 'YES' if blackbox_service.status is defined else 'NO - run: ansible-playbook -i inventories/prod/hosts.ini site.yml --limit monitoring-server' }}"
+
+    - name: Check Prometheus health (localhost)
+      uri:
+        url: "http://127.0.0.1:9090/-/healthy"
+        method: GET
+        status_code: 200
+        timeout: 5
+      register: prom_health
+      failed_when: false
+
+    - name: Check Grafana health (localhost)
+      uri:
+        url: "http://127.0.0.1:3000/api/health"
+        method: GET
+        status_code: 200
+        timeout: 5
+      register: grafana_health
+      failed_when: false
+
+    - name: Restart Grafana if not responding
+      systemd:
+        name: grafana-server
+        state: restarted
+        daemon_reload: yes
+      when: grafana_health.status | default(-1) != 200
+
+    - name: Wait for Grafana to listen
+      wait_for:
+        port: 3000
+        host: 127.0.0.1
+        delay: 2
+        timeout: 30
+      when: grafana_health.status | default(-1) != 200
+
+    - name: Recheck Grafana health after restart
+      uri:
+        url: "http://127.0.0.1:3000/api/health"
+        method: GET
+        status_code: 200
+        timeout: 10
+      register: grafana_health
+      failed_when: false
+      when: grafana_health.status | default(-1) != 200
+
+    - name: Check Blackbox Exporter (localhost)
+      uri:
+        url: "http://127.0.0.1:9115/metrics"
+        method: GET
+        return_content: false
+        status_code: 200
+        timeout: 5
+      register: blackbox_health
+      failed_when: false
+
+    - name: Show Grafana logs if still not up
+      command: journalctl -u grafana-server -n 30 --no-pager
+      register: grafana_logs
+      changed_when: false
+      when: grafana_health.status | default(-1) != 200
+
+    - name: Grafana recent logs (debug)
+      debug:
+        var: grafana_logs.stdout_lines
+      when: grafana_health.status | default(-1) != 200
+
+    - name: Check if port 3000 is listening externally
+      command: ss -tlnp | grep ':3000' | grep -E '0.0.0.0|\*'
+      register: grafana_port_check
+      changed_when: false
+      failed_when: false
+
+    - name: Check if port 9115 is listening externally
+      command: ss -tlnp | grep ':9115' | grep -E '0.0.0.0|\*'
+      register: blackbox_port_check
+      changed_when: false
+      failed_when: false
+
+    - name: Health results and next steps
+      debug:
+        msg:
+          - "=== Service Health (localhost) ==="
+          - "Prometheus: {{ prom_health.status | default('failed') }} ✅"
+          - "Grafana: {{ grafana_health.status | default('failed') }}"
+          - "Blackbox: {{ blackbox_health.status | default('failed') }}"
+          - ""
+          - "=== Port Listeners (external access) ==="
+          - "Port 3000 (Grafana): {{ 'LISTENING' if grafana_port_check.rc == 0 else 'NOT LISTENING' }}"
+          - "Port 9115 (Blackbox): {{ 'LISTENING' if blackbox_port_check.rc == 0 else 'NOT LISTENING' }}"
+          - ""
+          - "=== Next Steps ==="
+          - "If Grafana not installed: ansible-playbook -i inventories/prod/hosts.ini site.yml --limit monitoring-server"
+          - "If services up locally but browser can't reach: Open ports 3000,9115 in cloud firewall (Oracle VCN/NSG)"
+          - "Prometheus works → firewall allows 9090. Add 3000 and 9115 to same rules."

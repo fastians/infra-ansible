@@ -55,6 +55,22 @@
     mode: '0755'
   become: yes
 
+- name: Create Loki subdirectories (chunks, wal, compactor, rules, tsdb)
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: loki
+    group: loki
+    mode: '0755'
+  loop:
+    - /var/lib/loki/chunks
+    - /var/lib/loki/wal
+    - /var/lib/loki/compactor
+    - /var/lib/loki/rules
+    - /var/lib/loki/tsdb-index
+    - /var/lib/loki/tsdb-cache
+  become: yes
+
 - name: Configure loki
   template:
     src: loki-config.yml.j2
