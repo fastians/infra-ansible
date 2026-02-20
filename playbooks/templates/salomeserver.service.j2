@@ -8,7 +8,9 @@ User={{ app_user }}
 Group={{ app_user }}
 WorkingDirectory={{ app_base_dir }}/{{ app_name }}
 Environment="PATH={{ app_base_dir }}/{{ app_name }}/.venv/bin"
-EnvironmentFile={{ app_base_dir }}/{{ app_name }}/.env
+Environment="PYTHONPATH={{ app_base_dir }}/{{ app_name }}:{{ app_base_dir }}/{{ app_name }}/app"
+# .env lives in app/ so the app can find it when run from repo root
+EnvironmentFile={{ app_base_dir }}/{{ app_name }}/app/.env
 ExecStart={{ app_base_dir }}/{{ app_name }}/run_uvicorn.sh
 Restart=always
 RestartSec=10

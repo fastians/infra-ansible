@@ -19,8 +19,8 @@ if [ ! -d ".venv" ]; then
     python3 -m venv .venv
 fi
 
-# Use venv pip explicitly (avoids PEP 668 externally-managed-environment); repo has app/ subdir
-timeout 300 .venv/bin/pip install -r app/requirements.txt --no-input --quiet
+# Use venv pip explicitly (avoids PEP 668 externally-managed-environment); requirements in repo root
+timeout 300 .venv/bin/pip install -r requirements.txt --no-input --quiet
 
 sudo systemctl restart "$SERVICE_UNIT"
 

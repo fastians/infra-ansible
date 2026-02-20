@@ -21,7 +21,7 @@ python_apps:
     app_base_dir: "/home/mateen_fastians/.apps"
     app_env_template: "backendserver.env.j2"
     app_systemd_name: backendserver
-    app_requirements_path: "app/requirements.txt"
+    app_requirements_path: "requirements.txt"
     app_entry_point: "app.main:app"
   - name: MEK_LAB_GEO
     port: 8001

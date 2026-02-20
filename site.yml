@@ -80,6 +80,19 @@
         app_extra_dirs: "{{ item.app_extra_dirs | default(omit) }}"
       loop: "{{ python_apps }}"
 
+    # Salome: .env in app/ so the app finds it; unit loads app/.env
+    - name: Deploy Salome app/.env
+      template:
+        src: roles/python_app/templates/env/salomeserver.env.j2
+        dest: "{{ python_apps[0].app_base_dir }}/{{ python_apps[0].name }}/app/.env"
+        owner: mateen_fastians
+        group: mateen_fastians
+        mode: '0600'
+      vars:
+        app_user: mateen_fastians
+        app_base_dir: "{{ python_apps[0].app_base_dir }}"
+        app_name: "{{ python_apps[0].name }}"
+
     # Salome: wrapper script (PYTHONPATH repo root + app/) and unit so src import works
     - name: Deploy Salome run_uvicorn.sh (PYTHONPATH)
       template:
@@ -92,9 +105,9 @@
         app_base_dir: "{{ python_apps[0].app_base_dir }}"
         app_name: "{{ python_apps[0].name }}"
         app_entry_point: "{{ python_apps[0].app_entry_point }}"
-        app_host: "{{ app_host }}"
         app_port: "{{ python_apps[0].port }}"
         app_workers: 1
+        # app_host comes from group_vars (salome: app_host: "0.0.0.0"); do not re-pass to avoid recursion
 
     - name: Deploy salomeserver.service (uses wrapper)
       template:
