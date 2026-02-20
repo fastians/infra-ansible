@@ -1,5 +1,0 @@
-#!/bin/bash
-# Wrapper so PYTHONPATH is set before uvicorn (fixes ModuleNotFoundError: src)
-set -e
-export PYTHONPATH="{{ app_base_dir }}/{{ app_name }}:{{ app_base_dir }}/{{ app_name }}/app"
-exec "{{ app_base_dir }}/{{ app_name }}/.venv/bin/uvicorn" {{ app_entry_point }} --host {{ app_host }} --port {{ app_port }} --workers {{ app_workers }}

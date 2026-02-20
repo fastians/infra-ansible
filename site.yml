@@ -93,23 +93,7 @@
         app_base_dir: "{{ python_apps[0].app_base_dir }}"
         app_name: "{{ python_apps[0].name }}"
 
-    # Salome: wrapper script (PYTHONPATH repo root + app/) and unit so src import works
-    - name: Deploy Salome run_uvicorn.sh (PYTHONPATH)
-      template:
-        src: playbooks/templates/salome-run-uvicorn.sh.j2
-        dest: "{{ python_apps[0].app_base_dir }}/{{ python_apps[0].name }}/run_uvicorn.sh"
-        mode: "0755"
-        owner: mateen_fastians
-        group: mateen_fastians
-      vars:
-        app_base_dir: "{{ python_apps[0].app_base_dir }}"
-        app_name: "{{ python_apps[0].name }}"
-        app_entry_point: "{{ python_apps[0].app_entry_point }}"
-        app_port: "{{ python_apps[0].port }}"
-        app_workers: 1
-        # app_host comes from group_vars (salome: app_host: "0.0.0.0"); do not re-pass to avoid recursion
-
-    - name: Deploy salomeserver.service (uses wrapper)
+    - name: Deploy salomeserver.service
       template:
         src: playbooks/templates/salomeserver.service.j2
         dest: /etc/systemd/system/salomeserver.service
@@ -119,6 +103,9 @@
         app_base_dir: "{{ python_apps[0].app_base_dir }}"
         app_name: "{{ python_apps[0].name }}"
         app_description: "{{ python_apps[0].description }}"
+        app_entry_point: "{{ python_apps[0].app_entry_point }}"
+        app_port: "{{ python_apps[0].port }}"
+        app_workers: 1
 
     - name: Restart and enable salomeserver
       systemd:

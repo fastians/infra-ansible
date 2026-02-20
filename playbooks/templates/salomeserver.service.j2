@@ -7,11 +7,12 @@ Type=simple
 User={{ app_user }}
 Group={{ app_user }}
 WorkingDirectory={{ app_base_dir }}/{{ app_name }}
-Environment="PATH={{ app_base_dir }}/{{ app_name }}/.venv/bin"
+# Standard PATH so subprocesses (e.g. salome script calling "which") find system tools; .venv last for precedence
+Environment="PATH=/usr/local/bin:/usr/bin:/bin:{{ app_base_dir }}/{{ app_name }}/.venv/bin"
 Environment="PYTHONPATH={{ app_base_dir }}/{{ app_name }}:{{ app_base_dir }}/{{ app_name }}/app"
 # .env lives in app/ so the app can find it when run from repo root
 EnvironmentFile={{ app_base_dir }}/{{ app_name }}/app/.env
-ExecStart={{ app_base_dir }}/{{ app_name }}/run_uvicorn.sh
+ExecStart={{ app_base_dir }}/{{ app_name }}/.venv/bin/uvicorn {{ app_entry_point }} --host {{ app_host }} --port {{ app_port }} --workers {{ app_workers }}
 Restart=always
 RestartSec=10
 
