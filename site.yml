@@ -80,6 +80,13 @@
         app_extra_dirs: "{{ item.app_extra_dirs | default(omit) }}"
       loop: "{{ python_apps }}"
 
+    # psmisc provides fuser; salomeserver unit uses it to free port 8000 before start
+    - name: Ensure psmisc installed (for salomeserver ExecStartPre)
+      apt:
+        name: psmisc
+        state: present
+      become: yes
+
     # Salome: .env in app/ so the app finds it; unit loads app/.env
     - name: Deploy Salome app/.env
       template:
