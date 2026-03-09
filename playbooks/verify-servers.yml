@@ -80,13 +80,13 @@
 
     - name: "Display monitor service status"
       debug:
-        msg:
-          - "=========================================="
-          - "Monitor Server (brain + probe) Status"
-          - "=========================================="
-          - "{% for item in service_status.results %}"
-          - "{{ item.item.name }}: {{ 'RUNNING' if item.status.ActiveState == 'active' else 'STOPPED' }}"
-          - "{% endfor %}"
+        msg: |
+          ==========================================
+          Monitor Server (brain + probe) Status
+          ==========================================
+          {% for item in service_status.results %}
+          {{ item.item.name }}: {{ 'RUNNING' if item.status.ActiveState == 'active' else 'STOPPED' }}
+          {% endfor %}
       tags: [summary]
 
 # ============================================
@@ -143,13 +143,13 @@
 
     - name: "Display backend service status"
       debug:
-        msg:
-          - "=========================================="
-          - "Backend Server Status"
-          - "=========================================="
-          - "{% for item in service_status.results %}"
-          - "{{ item.item.name }}: {{ 'RUNNING' if item.status.ActiveState == 'active' else 'STOPPED' }}"
-          - "{% endfor %}"
+        msg: |
+          ==========================================
+          Backend Server Status
+          ==========================================
+          {% for item in service_status.results %}
+          {{ item.item.name }}: {{ 'RUNNING' if item.status.ActiveState == 'active' else 'STOPPED' }}
+          {% endfor %}
       tags: [summary]
 
 # ============================================
@@ -198,13 +198,13 @@
 
     - name: "Display salome service status"
       debug:
-        msg:
-          - "=========================================="
-          - "Salome Server Status"
-          - "=========================================="
-          - "{% for item in service_status.results %}"
-          - "{{ item.item.name }}: {{ 'RUNNING' if item.status.ActiveState == 'active' else 'STOPPED' }}"
-          - "{% endfor %}"
+        msg: |
+          ==========================================
+          Salome Server Status
+          ==========================================
+          {% for item in service_status.results %}
+          {{ item.item.name }}: {{ 'RUNNING' if item.status.ActiveState == 'active' else 'STOPPED' }}
+          {% endfor %}
       tags: [summary]
 
 # ============================================
@@ -228,8 +228,13 @@
           - "  --tags ports     : Port checks only"
           - "  --tags health    : Health endpoints only"
           - ""
-          - "Check logs:"
-          - "  Backend: journalctl -u backendserver -f"
-          - "  Salome: journalctl -u salomeserver -f"
+          - "If something is wrong:"
+          - "  • FAILED / STOPPED → ssh to host, then: systemctl status <service> ; journalctl -u <service> -n 50 --no-pager"
+          - "  • Health 404/5xx  → app may use a different /health path or be misconfigured; check app logs"
+          - "  • Port not open    → service not listening: restart with systemctl restart <service>, then re-verify"
+          - ""
+          - "Check logs (on each server):"
+          - "  Backend: journalctl -u backendserver -f   (or geoserver, llmserver)"
+          - "  Salome:  journalctl -u salomeserver -f"
           - "  Monitor: journalctl -u prometheus -f"
           - "=========================================="

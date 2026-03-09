@@ -26,7 +26,8 @@ Ansible infrastructure automation: monitoring, provisioning, deployment, configu
 
 # Deployment
 ./deploy <service> <branch>     # Deploy application
-./sync                         # Sync deployment scripts
+./sync                         # Push local deployment_scripts/ to servers
+./pull                         # Pull deployment scripts from servers to local
 
 # Management
 ansible-playbook -i inventories/prod/hosts.ini site.yml

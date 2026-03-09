@@ -1,0 +1,8 @@
+#!/bin/bash
+# Pull deployment scripts FROM servers to local deployment_scripts/
+# Usage: ./pull
+# Use this to sync your local repo with what is actually on the servers.
+set -e
+INVENTORY="inventories/prod/hosts.ini"
+echo "📥 Pulling deployment scripts from servers to local deployment_scripts/..."
+ansible-playbook -i "$INVENTORY" playbooks/pull-scripts-from-server.yml "$@"

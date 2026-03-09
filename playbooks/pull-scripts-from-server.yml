@@ -1,0 +1,75 @@
+---
+# Pull deployment scripts FROM servers to local deployment_scripts/
+# Usage: ansible-playbook -i inventories/prod/hosts.ini playbooks/pull-scripts-from-server.yml
+# Use this to sync your local scripts with what is actually on the servers.
+
+- name: Pull backend deployment scripts to local
+  hosts: backend
+  tasks:
+    - name: Ensure local deployment_scripts dir exists
+      file:
+        path: "{{ playbook_dir }}/../deployment_scripts"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+
+    - name: Fetch backendserver.sh from server
+      fetch:
+        src: "/home/mateen_fastians/.deploy/backendserver.sh"
+        dest: "{{ playbook_dir }}/../deployment_scripts/"
+        flat: yes
+      become: yes
+
+    - name: Fetch geoserver.sh from server
+      fetch:
+        src: "/home/mateen_fastians/.deploy/geoserver.sh"
+        dest: "{{ playbook_dir }}/../deployment_scripts/"
+        flat: yes
+      become: yes
+
+    - name: Fetch llmserver.sh from server
+      fetch:
+        src: "/home/mateen_fastians/.deploy/llmserver.sh"
+        dest: "{{ playbook_dir }}/../deployment_scripts/"
+        flat: yes
+      become: yes
+
+- name: Pull salome deployment script to local
+  hosts: salome
+  tasks:
+    - name: Fetch deploy.sh from salome server
+      fetch:
+        src: "/home/mateen_fastians/opt/deploy.sh"
+        dest: "{{ playbook_dir }}/../deployment_scripts/"
+        flat: yes
+      become: yes
+
+    - name: Rename deploy.sh to salomeserver.sh locally
+      copy:
+        src: "{{ playbook_dir }}/../deployment_scripts/deploy.sh"
+        dest: "{{ playbook_dir }}/../deployment_scripts/salomeserver.sh"
+        remote_src: yes
+        force: yes
+      delegate_to: localhost
+      run_once: true
+
+    - name: Remove temporary deploy.sh
+      file:
+        path: "{{ playbook_dir }}/../deployment_scripts/deploy.sh"
+        state: absent
+      delegate_to: localhost
+      run_once: true
+
+- name: Confirm scripts pulled
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: List pulled scripts
+      command: ls -la "{{ playbook_dir }}/../deployment_scripts/"
+      register: listing
+      changed_when: false
+
+    - name: Show pulled scripts
+      debug:
+        msg: "{{ listing.stdout_lines }}"
