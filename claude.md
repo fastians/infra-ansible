@@ -9,8 +9,9 @@ Ansible infrastructure automation: monitoring, provisioning, deployment, configu
 4. **Monitoring**: Dedicated monitor server (brain + probe); Prometheus, Grafana, Loki, Alertmanager, Blackbox Exporter; Promtail and Node Exporter on app servers
 
 ## Structure
-- `inventories/prod/hosts.ini`: Inventory (backend-server, salome-server, monitoring-server)
-- `inventories/prod/group_vars/`: all/all.yml, all/secrets.yml, backend.yml, salome.yml, monitoring.yml
+- `inventories/prod/hosts.ini`: Inventory (backend-server, backend-aws, salome-server, monitoring-server); often gitignored locally
+- `inventories/prod/group_vars/`: all/all.yml, all/site_constants.yml (`primary_domain`, `api_public_host`, `salome_public_host`, `contact_email`), all/secrets.yml, backend.yml, salome.yml, monitoring.yml
+- `inventories/prod/host_vars/`: per-host (e.g. `backend-aws.yml`, `prometheus_instance`)
 - `roles/`: python_app, nginx, common; prometheus, grafana, loki, alertmanager, blackbox_exporter (monitor); promtail, node_exporter (app servers + monitor)
 - `playbooks/`: provision-*.yml, deploy.yml, sync-scripts.yml, manage-services.yml, verify-servers.yml, open-firewall-ports.yml, salome-debug.yml, test-api-docs.yml; app units come from site.yml (single source of truth)
 - `docs/`: ARCHITECTURE.md, OPERATIONS.md, CONFIGURATION.md
@@ -36,8 +37,8 @@ ansible-playbook -i inventories/prod/hosts.ini playbooks/manage-services.yml
 
 ## Infrastructure Model
 - **monitoring-server** (brain + probe): Prometheus, Grafana, Loki, Alertmanager, Blackbox Exporter; Node Exporter, Promtail
-- **backend-server** (api.mek-lab.com): **One machine**, three FastAPI apps — backendserver:8000, geoserver:8001, llmserver:8002; Promtail, Node Exporter, Nginx + Certbot
-- **salome-server** (salome.mek-lab.com): FastAPI salomeserver:8000; Promtail, Node Exporter, Nginx + Certbot
+- **backend-server** / **backend-aws** (`api_public_host`, default `api.mek-lab.com`): **One machine each** (or duplicate API stack), three FastAPI apps — backendserver:8000, geoserver:8001, llmserver:8002; Promtail, Node Exporter, Nginx + Certbot
+- **salome-server** (`salome_public_host`, default `salome.mek-lab.com`): FastAPI salomeserver:8000; Promtail, Node Exporter, Nginx + Certbot
 
 ## Standard Service Names & Ports
 - `backendserver` (8000), `geoserver` (8001), `llmserver` (8002), `salomeserver` (8000)

@@ -1,11 +1,11 @@
-# Salome server group variables
+# Mek-Lab Salome host: one VM, one unit salomeserver (see site_constants.yml naming).
 promtail_config_template: "promtail-config.yml.j2"
 
 # Listen on all interfaces so Prometheus (on monitor) can scrape /metrics
 app_host: "0.0.0.0"
 
 # Nginx Configuration
-nginx_server_name: "salome.mek-lab.com"
+nginx_server_name: "{{ salome_public_host }}"
 nginx_client_max_body_size: "10M"
 nginx_template: "salome-nginx.conf.j2"
 nginx_config_name: "salome.conf"
@@ -18,7 +18,7 @@ python_apps:
     port: 8000
     repo_url: "{{ vault_salome_engineering_repo_url }}"
     branch: main
-    description: "Salome FastAPI Service"
+    description: "Mek-Lab Salome (public via nginx; systemd: salomeserver)"
     app_base_dir: "/home/mateen_fastians/opt"
     app_env_template: "salomeserver.env.j2"
     app_systemd_name: salomeserver

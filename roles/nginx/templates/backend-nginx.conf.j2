@@ -1,21 +1,10 @@
-server {
-    listen 443 ssl;
-    server_name {{ nginx_server_name }};
-    client_max_body_size {{ nginx_client_max_body_size | default('500M') }};
-    proxy_read_timeout 600s;
-
-    ssl_certificate     /etc/letsencrypt/live/{{ nginx_server_name }}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/{{ nginx_server_name }}/privkey.pem;
-    include             /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
-
+{% macro backend_app_locations() %}
     # =========================
     # CORE BACKEND (8000)
     # =========================
     location / {
         proxy_pass http://127.0.0.1:8000;
 
-        # --- MINIMAL SSE FIX ---
         proxy_buffering off;
         proxy_http_version 1.1;
         proxy_set_header Connection '';
@@ -84,14 +73,43 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
+{% endmacro %}
+
+{% if nginx_le_cert_present | default(false) %}
+server {
+    listen 443 ssl;
+    server_name {{ nginx_server_name }};
+    client_max_body_size {{ nginx_client_max_body_size | default('500M') }};
+    proxy_read_timeout 600s;
+
+    ssl_certificate     /etc/letsencrypt/live/{{ nginx_server_name }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ nginx_server_name }}/privkey.pem;
+    include             /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
+
+{{ backend_app_locations() }}
 }
 
+{% endif %}
+
 # =========================
-# HTTP → HTTPS REDIRECT
+# HTTP: ACME + (redirect to HTTPS or serve until TLS exists)
 # =========================
 server {
     listen 80;
-    server_name {{ nginx_server_name }};
+    server_name {{ nginx_server_name }}{% if nginx_bind_http_to_inventory_ip | default(false) and ansible_host | default('') | length > 0 %} {{ ansible_host }}{% endif %}{% for _sn in nginx_extra_server_names | default([]) %} {{ _sn }}{% endfor %};
+    client_max_body_size {{ nginx_client_max_body_size | default('500M') }};
 
-    return 301 https://$host$request_uri;
+    location /.well-known/acme-challenge/ {
+        root {{ nginx_certbot_webroot | default('/var/www/certbot') }};
+    }
+
+{% if nginx_le_cert_present | default(false) %}
+    location / {
+        return 301 https://$host$request_uri;
+    }
+{% else %}
+    proxy_read_timeout 600s;
+{{ backend_app_locations() }}
+{% endif %}
 }

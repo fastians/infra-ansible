@@ -1,6 +1,18 @@
 ---
 # Default variables for nginx role (Backend defaults)
-nginx_server_name: "api.mek-lab.com"
+# Overridden by group_vars from site_constants.yml (api_public_host)
+nginx_server_name: "{{ api_public_host | default('api.mek-lab.com') }}"
 nginx_client_max_body_size: "500M"
 nginx_template: "backend-nginx.conf.j2"
 nginx_config_name: "api.conf"
+
+# Set true on a host (with certbot_admin_email) to obtain/enable Let's Encrypt after nginx serves webroot.
+nginx_certbot_auto: false
+nginx_certbot_webroot: /var/www/certbot
+# Required when nginx_certbot_auto is true (e.g. ops@example.com)
+certbot_admin_email: ""
+
+# Port 80 only: also match ansible_host (public IP) so http://<IP>/docs works in a browser.
+nginx_bind_http_to_inventory_ip: false
+# Optional extra server_name tokens on port 80 (e.g. another DNS name during migration).
+nginx_extra_server_names: []

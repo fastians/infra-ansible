@@ -44,3 +44,6 @@ Thumbs.db
 docs/
 
 inventories/prod/hosts.ini
+
+.tmp_keysync
+AWS.pem

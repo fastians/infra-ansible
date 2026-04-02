@@ -36,9 +36,10 @@ scrape_configs:
 {% set backend_hosts = groups.get('backend', []) %}
 {% set salome_hosts = groups.get('salome', []) %}
 {% for host in monitor_hosts + backend_hosts + salome_hosts %}
-      - targets: ['{{ host }}:9100']
+{% set scrape_host = '127.0.0.1' if host == inventory_hostname else (hostvars[host].ansible_host | default(host)) %}
+      - targets: ['{{ scrape_host }}:9100']
         labels:
-          instance: {{ host }}
+          instance: {{ hostvars[host].prometheus_instance | default(host) }}
 {% endfor %}
 {% endif %}
 
@@ -86,27 +87,31 @@ scrape_configs:
 {% endfor %}
 {% else %}
 {% for host in groups.get('backend', []) %}
-      - targets: ['{{ host }}:8000']
+{% set scrape_host = hostvars[host].ansible_host | default(host) %}
+{% set pinst = hostvars[host].prometheus_instance | default(host) %}
+      - targets: ['{{ scrape_host }}:8000']
         labels:
           service: backendserver
-          instance: backend
-          target: "{{ host }}:8000"
-      - targets: ['{{ host }}:8001']
+          instance: {{ pinst }}
+          target: "{{ scrape_host }}:8000"
+      - targets: ['{{ scrape_host }}:8001']
         labels:
           service: geoserver
-          instance: backend
-          target: "{{ host }}:8001"
-      - targets: ['{{ host }}:8002']
+          instance: {{ pinst }}
+          target: "{{ scrape_host }}:8001"
+      - targets: ['{{ scrape_host }}:8002']
         labels:
           service: llmserver
-          instance: backend
-          target: "{{ host }}:8002"
+          instance: {{ pinst }}
+          target: "{{ scrape_host }}:8002"
 {% endfor %}
 {% for host in groups.get('salome', []) %}
-      - targets: ['{{ host }}:8000']
+{% set scrape_host = hostvars[host].ansible_host | default(host) %}
+{% set pinst = hostvars[host].prometheus_instance | default(host) %}
+      - targets: ['{{ scrape_host }}:8000']
         labels:
           service: salomeserver
-          instance: salome
-          target: "{{ host }}:8000"
+          instance: {{ pinst }}
+          target: "{{ scrape_host }}:8000"
 {% endfor %}
 {% endif %}

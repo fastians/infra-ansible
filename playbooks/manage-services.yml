@@ -14,7 +14,7 @@
 
 - name: Manage Backend app services
   hosts: backend
-  gather_facts: false
+  gather_facts: true
   tasks:
     - name: Manage Python application services
       include_role:
@@ -25,6 +25,13 @@
         app_repo_url: "{{ item.repo_url }}"
         app_branch: "{{ item.branch }}"
         app_description: "{{ item.description }}"
+        app_base_dir: "{{ item.app_base_dir | default(omit) }}"
+        app_env_template: "{{ item.app_env_template | default(omit) }}"
+        app_systemd_name: "{{ item.app_systemd_name | default(omit) }}"
+        app_requirements_path: "{{ item.app_requirements_path | default('requirements.txt') }}"
+        app_entry_point: "{{ item.app_entry_point | default(omit) }}"
+        app_extra_dirs: "{{ item.app_extra_dirs | default([]) }}"
+        app_python_version: "{{ item.app_python_version | default(backend_app_python_version | default('3.12')) }}"
       loop: "{{ python_apps }}"
 
 - hosts: backend

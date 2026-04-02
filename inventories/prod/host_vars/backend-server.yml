@@ -1,0 +1,3 @@
+---
+# Short label for Prometheus/Grafana (inventory hostname is backend-server)
+prometheus_instance: backend

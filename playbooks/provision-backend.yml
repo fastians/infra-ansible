@@ -96,7 +96,7 @@
           - "Promtail: ships logs to Loki on monitor server"
           - ""
           - "Next Steps:"
-          - "1. Configure SSL: sudo certbot --nginx -d api.mek-lab.com"
+          - "1. Configure SSL: sudo certbot --nginx -d {{ api_public_host }}"
           - "2. Check logs: journalctl -u <service-name> -f"
           - "=========================================="
       tags: [always]

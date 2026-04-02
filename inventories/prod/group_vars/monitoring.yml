@@ -6,34 +6,13 @@ grafana_datasource_alertmanager_url: "http://localhost:9093"
 # Optional: comma-separated emails for Grafana alert notifications (provisioned contact point "Default")
 # grafana_alert_emails: "ops@example.com"
 
-# Prometheus: scrape node_exporter (monitor via localhost to avoid hairpin/firewall; backend/salome via their IPs)
-prometheus_node_targets:
-  - target: "127.0.0.1:9100"
-    instance: monitor
-  - target: "34.50.12.114:9100"
-    instance: backend
-  - target: "34.64.150.177:9100"
-    instance: salome
-
-# Prometheus: scrape FastAPI /metrics (CLAUDE.md: backend = backendserver:8000, geoserver:8001, llmserver:8002; salome:8000)
-prometheus_fastapi_targets:
-  - target: "34.50.12.114:8000"
-    service: backendserver
-    instance: backend
-  - target: "34.50.12.114:8001"
-    service: geoserver
-    instance: backend
-  - target: "34.50.12.114:8002"
-    service: llmserver
-    instance: backend
-  - target: "34.64.150.177:8000"
-    service: salomeserver
-    instance: salome
+# Prometheus scrape lists: omit prometheus_node_targets / prometheus_fastapi_targets to build from inventory
+# (ansible_host + host_vars prometheus_instance). See roles/prometheus/templates/prometheus.yml.j2.
 
 # Blackbox HTTP probes (availability from the monitor)
 blackbox_probe_targets:
-  - https://api.mek-lab.com/health
-  - https://salome.mek-lab.com/health
+  - "https://{{ api_public_host }}/health"
+  - "https://{{ salome_public_host }}/health"
 
 # Telegram: Alertmanager sends alerts here. Set both to enable; or pass -e alertmanager_telegram_bot_token=TOKEN -e alertmanager_telegram_chat_id=CHAT_ID
 alertmanager_telegram_bot_token: ""

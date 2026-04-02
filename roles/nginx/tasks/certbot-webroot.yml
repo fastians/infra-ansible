@@ -1,0 +1,69 @@
+---
+# Obtain a Let's Encrypt certificate using HTTP-01 webroot (nginx must serve /.well-known first).
+
+- name: Ensure Certbot ACME webroot exists
+  file:
+    path: "{{ nginx_certbot_webroot }}/.well-known/acme-challenge"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: yes
+
+- name: Attempt Let's Encrypt certificate (webroot)
+  block:
+    - name: Obtain or renew certificate (non-interactive webroot)
+      command: >-
+        certbot certonly --webroot -w {{ nginx_certbot_webroot | quote }}
+        -d {{ nginx_server_name | quote }}
+        --email {{ certbot_admin_email | quote }}
+        --agree-tos --non-interactive --expand
+      register: nginx_certbot_cmd
+      changed_when: >-
+        nginx_certbot_cmd.rc == 0 and
+        ( 'Successfully' in (nginx_certbot_cmd.stdout | default(''))
+          or 'Congratulations' in (nginx_certbot_cmd.stdout | default('')) )
+      become: yes
+
+    - name: Install Mozilla-compatible TLS options for nginx (if missing)
+      copy:
+        src: certbot-options-ssl-nginx.conf
+        dest: /etc/letsencrypt/options-ssl-nginx.conf
+        owner: root
+        group: root
+        mode: '0644'
+        force: false
+      become: yes
+
+    - name: Generate DH parameters for nginx (one-time, slow)
+      command: openssl dhparam -out /etc/letsencrypt/ssl-dhparams.pem 2048
+      args:
+        creates: /etc/letsencrypt/ssl-dhparams.pem
+      become: yes
+
+    - name: Refresh Let's Encrypt certificate stat
+      stat:
+        path: "/etc/letsencrypt/live/{{ nginx_server_name }}/fullchain.pem"
+      register: nginx_le_cert_stat
+      become: yes
+
+    - name: Redeploy nginx site with TLS enabled
+      template:
+        src: "{{ nginx_template }}"
+        dest: "/etc/nginx/sites-available/{{ nginx_config_name }}"
+        owner: root
+        group: root
+        mode: '0644'
+      become: yes
+      vars:
+        nginx_le_cert_present: "{{ nginx_le_cert_stat.stat.exists }}"
+      notify: reload nginx
+
+  rescue:
+    - name: Certbot did not issue a certificate (nginx stays HTTP-only until this succeeds)
+      ansible.builtin.debug:
+        msg: >-
+          Let's Encrypt validation failed for {{ nginx_server_name }}.
+          Create a public DNS A (or AAAA) record for this name pointing to this server,
+          ensure inbound TCP 80 (and 443 after TLS) is allowed in the cloud security group,
+          then re-run the playbook. Logs: /var/log/letsencrypt/letsencrypt.log on the host.

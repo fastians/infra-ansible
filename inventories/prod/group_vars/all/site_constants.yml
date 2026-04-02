@@ -1,0 +1,25 @@
+---
+# Site-wide public names (safe to commit). Secrets stay in secrets.yml (gitignored).
+primary_domain: "mek-lab.com"
+# Nginx vhost for API host: backendserver / geoserver / llmserver (paths /, /geo/, /llm/)
+api_public_host: "api.mek-lab.com"
+# Nginx vhost for Salome host: salomeserver
+salome_public_host: "salome.mek-lab.com"
+contact_email: "contact@mek-lab.com"
+
+# --- Mek-Lab naming (do not mix these layers) ---
+#
+# 1) VM / SSH (inventory host in hosts.ini)
+#    Examples: backend-server, backend-aws, salome-server, monitoring-server
+#    Pattern: <role>-<hint> — "server" means the machine, not the systemd unit.
+#
+# 2) Processes (systemd + ./deploy + journalctl -u)
+#    On API host: backendserver:8000, geoserver:8001, llmserver:8002
+#    On Salome host: salomeserver:8000
+#    These names are stable API — renaming requires a migration on every host.
+#
+# 3) Metrics (Prometheus label "instance" from host_vars prometheus_instance)
+#    Examples: backend, backend-aws, salome, monitor — short labels for Grafana.
+#
+# 4) Public DNS: primary_domain (marketing site), api_public_host, salome_public_host;
+#    contact_email for Certbot / transactional from address where used.

@@ -1,5 +1,5 @@
 ---
-# Ensure https://api.mek-lab.com/docs works and test with Ansible
+# Ensure https://<api_public_host>/docs works (see group_vars/all/site_constants.yml)
 # Usage: ansible-playbook -i inventories/prod/hosts.ini playbooks/test-api-docs.yml
 #
 # 502 Bad Gateway = nginx is up but nothing on port 8000. Start the backend app (see docs/API_DOCS_502_FIX.md).
@@ -63,12 +63,12 @@
         return_content: no
       register: docs_direct
 
-    - name: Test /docs via nginx (https, Host api.mek-lab.com)
+    - name: Test /docs via nginx (https, Host api_public_host)
       uri:
         url: "https://127.0.0.1/docs"
         method: GET
         headers:
-          Host: "api.mek-lab.com"
+          Host: "{{ api_public_host }}"
         status_code: [200, 301, 302, 307]
         timeout: 10
         validate_certs: no
@@ -80,7 +80,7 @@
       debug:
         msg:
           - "=========================================="
-          - "API docs test (api.mek-lab.com/docs)"
+          - "API docs test ({{ api_public_host }}/docs)"
           - "  Backend unit:        {{ (backend_unit_stat.results | selectattr('stat.exists') | list)[0].item }}"
           - "  Health (direct):     {{ health_direct.status }}"
           - "  /docs (direct:8000): {{ docs_direct.status }}"
@@ -97,7 +97,7 @@
         fail_msg: "Backend app not responding on 8000. On server run: sudo systemctl start backendserver && journalctl -u backendserver -n 50"
         success_msg: "Backend API and /docs are OK."
 
-    # ========== LLM (port 8002, https://api.mek-lab.com/llm/docs)
+    # ========== LLM (port 8002, /llm/docs via nginx)
     - name: Ensure llmserver is started
       systemd:
         name: llmserver
@@ -122,12 +122,12 @@
       register: llm_docs_direct
       ignore_errors: yes
 
-    - name: Test LLM /docs via nginx (https://api.mek-lab.com/llm/docs)
+    - name: Test LLM /docs via nginx (Host api_public_host)
       uri:
         url: "https://127.0.0.1/llm/docs"
         method: GET
         headers:
-          Host: "api.mek-lab.com"
+          Host: "{{ api_public_host }}"
         status_code: [200, 301, 302, 307]
         timeout: 10
         validate_certs: no

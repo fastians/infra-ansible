@@ -1,0 +1,17 @@
+---
+# Default app Python is backend_app_python_version in group_vars/backend.yml (3.12). GEO uses 3.10 on Jammy (FreeCAD ABI).
+app_skip_git_sync: false
+
+# Use same repo path as current working backend server.
+vault_geoserver_engineering_repo_url: "git@github.com:mek-lab/MEK_LAB_GEO.git"
+
+# Same hostname as production; see site_constants.yml (api_public_host). Point DNS here when cutting over.
+nginx_server_name: "{{ api_public_host }}"
+# Allow http://<public IP>/docs in the browser (Host header is the IP). Port 443 still uses api hostname only (cert CN).
+nginx_bind_http_to_inventory_ip: true
+nginx_certbot_auto: true
+certbot_admin_email: "{{ contact_email }}"
+prometheus_instance: backend-aws
+
+# UFW rules for 80/443 (also open these ports in AWS security groups).
+backend_allow_public_web: true

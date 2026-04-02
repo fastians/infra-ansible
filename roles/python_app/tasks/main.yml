@@ -4,6 +4,7 @@
 - name: Install system dependencies
   apt:
     name:
+      - acl
       - git
       - "python{{ app_python_version }}"
       - "python{{ app_python_version }}-venv"
@@ -57,7 +58,7 @@
     GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -o ServerAliveInterval=10"
   become: yes
   become_user: "{{ app_user }}"
-  when: not repo_exists.stat.exists
+  when: (not repo_exists.stat.exists) and (not app_skip_git_sync | default(false))
   async: 300
   poll: 10
 
@@ -71,7 +72,7 @@
     GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
   become: yes
   become_user: "{{ app_user }}"
-  when: repo_exists.stat.exists
+  when: repo_exists.stat.exists and (not app_skip_git_sync | default(false))
   register: git_update
   changed_when: "'Already up to date' not in git_update.stdout"
 

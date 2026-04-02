@@ -1,11 +1,22 @@
+# Mek-Lab API host: one VM, three FastAPI units (see site_constants.yml naming).
 # Promtail ships logs to Loki on monitor server
 promtail_config_template: "promtail-backend-config.yml.j2"
+
+# GEO uses system FreeCAD Python bindings; extension modules match one Python minor per Ubuntu release.
+# Jammy (22.04): FreeCAD packages → Python 3.10. Noble (24.04+): typically 3.12 with current freecad-python3.
+geo_app_python_version: "{{ '3.10' if ((ansible_facts | default({})).get('distribution_major_version', '24') | int) < 24 else '3.12' }}"
+
+# Default CPython for backend apps when an entry in python_apps does not set app_python_version.
+backend_app_python_version: "3.12"
+
+# Install FreeCAD libs on backend (no-op if already present). Required for MEK_LAB_GEO / geoserver.
+backend_install_freecad: true
 
 # Listen on all interfaces so Prometheus (on monitor) can scrape /metrics
 app_host: "0.0.0.0"
 
 # Nginx Configuration
-nginx_server_name: "api.mek-lab.com"
+nginx_server_name: "{{ api_public_host }}"
 nginx_client_max_body_size: "500M"
 nginx_template: "backend-nginx.conf.j2"
 nginx_config_name: "api.conf"
@@ -17,7 +28,7 @@ python_apps:
     port: 8000
     repo_url: "{{ vault_mek_lab_backend_repo_url }}"
     branch: main
-    description: "Backend API FastAPI Service"
+    description: "Mek-Lab API (public via nginx → /)"
     app_base_dir: "/home/mateen_fastians/.apps"
     app_env_template: "backendserver.env.j2"
     app_systemd_name: backendserver
@@ -27,17 +38,19 @@ python_apps:
     port: 8001
     repo_url: "{{ vault_geoserver_engineering_repo_url }}"
     branch: main
-    description: "GEO Server - Defeaturing Project"
+    description: "Mek-Lab GEO (public via nginx → /geo/)"
     app_base_dir: "/home/mateen_fastians/.apps"
     app_env_template: "geoserver.env.j2"
     app_systemd_name: geoserver
+    app_entry_point: "main:app"
+    app_python_version: "{{ geo_app_python_version }}"
   - name: MEK_LAB_LLM_AGENT
     port: 8002
     repo_url: "{{ vault_meklab_llm_repo_url }}"
     branch: main
-    description: "LLM Server FastAPI Service"
+    description: "Mek-Lab LLM (public via nginx → /llm/)"
     app_base_dir: "/home/mateen_fastians/.apps"
     app_env_template: "llmserver.env.j2"
     app_systemd_name: llmserver
-    app_requirements_path: "app/requirements.txt"
+    app_requirements_path: "requirements.txt"
     app_entry_point: "app.main:app"

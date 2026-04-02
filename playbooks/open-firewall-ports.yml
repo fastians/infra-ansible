@@ -60,3 +60,29 @@
         port: "{{ item }}"
         proto: tcp
       loop: "{{ salome_ports }}"
+
+- name: Allow public HTTP/HTTPS for backend API hostname (optional)
+  hosts: backend
+  become: yes
+  tasks:
+    - name: Ensure UFW is installed
+      apt:
+        name: ufw
+        state: present
+      when: backend_allow_public_web | default(false)
+
+    - name: Allow OpenSSH (avoid lockout if UFW is enabled later)
+      ufw:
+        rule: allow
+        name: OpenSSH
+      when: backend_allow_public_web | default(false)
+
+    - name: Allow public HTTP and HTTPS
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "80"
+        - "443"
+      when: backend_allow_public_web | default(false)

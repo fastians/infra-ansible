@@ -1,5 +1,5 @@
 server {
-    server_name salome.mek-lab.com;
+    server_name {{ nginx_server_name }};
     client_max_body_size 10M;
 
     location / {
@@ -12,18 +12,18 @@ server {
     }
 
     listen 443 ssl;
-    ssl_certificate /etc/letsencrypt/live/salome.mek-lab.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/salome.mek-lab.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/{{ nginx_server_name }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ nginx_server_name }}/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 }
 
 server {
-    if ($host = salome.mek-lab.com) {
+    if ($host = "{{ nginx_server_name }}") {
         return 301 https://$host$request_uri;
     }
 
     listen 80;
-    server_name salome.mek-lab.com;
+    server_name {{ nginx_server_name }};
     return 404;
 }

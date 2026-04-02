@@ -7,6 +7,31 @@
       - python3-certbot-nginx
     state: present
     update_cache: yes
+  become: yes
+
+- name: Check for Let's Encrypt certificate
+  stat:
+    path: "/etc/letsencrypt/live/{{ nginx_server_name }}/fullchain.pem"
+  register: nginx_le_cert_stat
+  become: yes
+
+- name: Ensure TLS options file exists (servers with certificate already present)
+  copy:
+    src: certbot-options-ssl-nginx.conf
+    dest: /etc/letsencrypt/options-ssl-nginx.conf
+    owner: root
+    group: root
+    mode: '0644'
+    force: false
+  when: nginx_le_cert_stat.stat.exists
+  become: yes
+
+- name: Ensure DH parameters for TLS (servers with certificate; can take minutes first time)
+  command: openssl dhparam -out /etc/letsencrypt/ssl-dhparams.pem 2048
+  args:
+    creates: /etc/letsencrypt/ssl-dhparams.pem
+  when: nginx_le_cert_stat.stat.exists
+  become: yes
 
 - name: Create nginx sites-available config
   template:
@@ -15,6 +40,9 @@
     owner: root
     group: root
     mode: '0644'
+  vars:
+    nginx_le_cert_present: "{{ nginx_le_cert_stat.stat.exists }}"
+  become: yes
   notify: reload nginx
 
 - name: Enable nginx site
@@ -22,12 +50,14 @@
     src: "/etc/nginx/sites-available/{{ nginx_config_name }}"
     dest: "/etc/nginx/sites-enabled/{{ nginx_config_name }}"
     state: link
+  become: yes
   notify: reload nginx
 
 - name: Remove default nginx site
   file:
     path: /etc/nginx/sites-enabled/default
     state: absent
+  become: yes
   notify: reload nginx
 
 - name: Create metrics config
@@ -37,6 +67,7 @@
     owner: root
     group: root
     mode: '0644'
+  become: yes
   notify: reload nginx
 
 - name: Ensure nginx is started and enabled
@@ -44,3 +75,15 @@
     name: nginx
     state: started
     enabled: yes
+  become: yes
+
+- name: Reload nginx before Certbot HTTP-01 check (serve /.well-known)
+  meta: flush_handlers
+
+- name: Issue TLS certificate via Certbot webroot (optional, backend API template only)
+  include_tasks: certbot-webroot.yml
+  when:
+    - nginx_certbot_auto | default(false)
+    - (certbot_admin_email | default('') | length) > 0
+    - not nginx_le_cert_stat.stat.exists
+    - nginx_template == 'backend-nginx.conf.j2'
