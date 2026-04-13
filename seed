@@ -1,0 +1,24 @@
+#!/bin/bash
+# Main server seeder wrapper
+# Usage: ./seed backendserver
+#        ./seed geoserver
+#        ./seed llmserver
+
+SERVICE=$1
+
+if [ -z "$SERVICE" ]; then
+    echo "Usage: ./seed <service>"
+    echo ""
+    echo "Services: backendserver, geoserver, llmserver"
+    echo ""
+    echo "Examples:"
+    echo "  ./seed backendserver"
+    exit 1
+fi
+
+TARGET="backend-server"
+
+echo "🌱 Running seeder for $SERVICE on $TARGET..."
+ansible-playbook -i inventories/prod/hosts.ini playbooks/seed.yml \
+    -e service=$SERVICE \
+    -e target=$TARGET

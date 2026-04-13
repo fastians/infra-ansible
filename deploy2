@@ -1,0 +1,39 @@
+#!/bin/bash
+# AWS-specific deployment wrapper
+# Usage: ./deploy2 backendserver main
+#        ./deploy2 geoserver staging
+#        ./deploy2 llmserver main
+
+SERVICE=$1
+BRANCH=${2:-main}
+
+if [ -z "$SERVICE" ]; then
+    echo "Usage: ./deploy2 <service> [branch]"
+    echo ""
+    echo "Services: backendserver, geoserver, llmserver"
+    echo ""
+    echo "Examples:"
+    echo "  ./deploy2 backendserver main"
+    echo "  ./deploy2 geoserver staging"
+    echo "  Rollback: ./deploy2 <service> <previous_branch>   (e.g. ./deploy2 geoserver main)"
+    echo ""
+    exit 1
+fi
+
+# Determine target server
+if [ "$SERVICE" = "salomeserver" ]; then
+    echo "❌ AWS is only for backend apps, not salomeserver. Use ./deploy for salomeserver."
+    exit 1
+else
+    # Target the specific AWS host
+    TARGET="backend-aws"
+fi
+
+echo "🚀 Deploying $SERVICE to AWS from branch $BRANCH..."
+echo "⚠️  Ensure you have pushed your local changes to branch '$BRANCH' on GitHub!"
+sleep 2
+
+ansible-playbook -i inventories/prod/hosts.ini playbooks/deploy.yml \
+    -e service=$SERVICE \
+    -e branch=$BRANCH \
+    -e target=$TARGET

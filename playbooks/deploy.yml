@@ -15,11 +15,14 @@
       salomeserver: "/home/mateen_fastians/opt/deploy.sh"
   
   tasks:
-    - name: Validate service name
-      assert:
-        that:
-          - service in ['backendserver', 'geoserver', 'llmserver', 'salomeserver']
-        fail_msg: "Invalid service. Must be one of: backendserver, geoserver, llmserver, salomeserver"
+    - name: Sync latest deployment script for {{ service }}
+      copy:
+        src: "../deployment_scripts/{{ service }}.sh"
+        dest: "{{ script_map[service] }}"
+        owner: mateen_fastians
+        group: "{{ 'deploy' if service != 'salomeserver' else 'mateen_fastians' }}"
+        mode: '0750'
+      become: yes
 
     - name: Deploy {{ service }} from branch {{ branch }}
       shell: "{{ script_map[service] }} {{ branch }}"

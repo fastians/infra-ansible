@@ -1,0 +1,28 @@
+---
+# Run database seeder on target backend service
+# Usage: ansible-playbook -i inventories/prod/hosts.ini playbooks/seed.yml -e service=backendserver -e target=backend-aws
+
+- hosts: "{{ target | default('backend-server') }}"
+  vars:
+    service: "{{ service | default('backendserver') }}"
+    # Map service names to their application directories (sync with deployment scripts)
+    app_dir_map:
+      backendserver: "/home/mateen_fastians/.apps/MEK_LAB_BACKEND"
+      geoserver: "/home/mateen_fastians/.apps/MEK_LAB_GEO"
+      llmserver: "/home/mateen_fastians/.apps/MEK_LAB_LLM_AGENT"
+  
+  tasks:
+    - name: Run seeder for {{ service }}
+      shell: "./db.sh seed"
+      args:
+        chdir: "{{ app_dir_map[service] }}"
+      become: yes
+      become_user: mateen_fastians
+      register: seed_output
+      failed_when: 
+        - seed_output.rc != 0
+        - "'Already exists' not in seed_output.stdout" # Optional: allow "already exists" errors if seeder isn't idempotent
+
+    - name: Show seed output
+      debug:
+        msg: "{{ seed_output.stdout_lines }}"

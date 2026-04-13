@@ -1,5 +1,5 @@
 #!/bin/bash
-# Simple deployment wrapper
+# Main server deployment wrapper
 # Usage: ./deploy backendserver main
 #        ./deploy geoserver staging
 #        ./deploy llmserver main
@@ -26,7 +26,8 @@ fi
 if [ "$SERVICE" = "salomeserver" ]; then
     TARGET="salome"
 else
-    TARGET="backend"
+    # Target the specific main backend host (from hosts.ini)
+    TARGET="backend-server"
 fi
 
 echo "🚀 Deploying $SERVICE from branch $BRANCH..."

@@ -1,0 +1,60 @@
+#!/bin/bash
+# Log viewer wrapper for Mek-Lab Infrastructure
+# Usage: ./logs <service> [std|aws]
+
+SERVICE=$1
+ENV=${2:-std}
+
+# Help message
+if [ -z "$SERVICE" ] || [ "$SERVICE" = "-h" ] || [ "$SERVICE" = "--help" ]; then
+    echo "Mek-Lab Log Viewer"
+    echo "Usage: ./logs <service> [env]"
+    echo ""
+    echo "Services:"
+    echo "  backendserver    (Core API)"
+    echo "  geoserver        (GEO Engine)"
+    echo "  llmserver        (LLM Agent)"
+    echo "  salomeserver     (Salome API)"
+    echo ""
+    echo "Environments:"
+    echo "  std              (Google Cloud - Default)"
+    echo "  aws              (Amazon Web Services)"
+    echo ""
+    echo "Examples:"
+    echo "  ./logs backendserver"
+    echo "  ./logs backendserver aws"
+    echo "  ./logs geoserver std"
+    exit 1
+fi
+
+# Configuration mapping from hosts.ini
+AWS_HOST="3.37.166.78"
+AWS_USER="ubuntu"
+AWS_KEY="AWS.pem"
+
+STD_BACKEND_HOST="34.64.140.26"
+STD_BACKEND_USER="mateen_fastians"
+
+STD_SALOME_HOST="34.64.150.177"
+STD_SALOME_USER="mateen_fastians"
+
+# Determine target
+if [ "$ENV" = "aws" ]; then
+    HOST=$AWS_HOST
+    USER=$AWS_USER
+    SSH_OPTS="-i $AWS_KEY -o StrictHostKeyChecking=no"
+elif [ "$SERVICE" = "salomeserver" ]; then
+    HOST=$STD_SALOME_HOST
+    USER=$STD_SALOME_USER
+    SSH_OPTS="-o StrictHostKeyChecking=no"
+else
+    HOST=$STD_BACKEND_HOST
+    USER=$STD_BACKEND_USER
+    SSH_OPTS="-o StrictHostKeyChecking=no"
+fi
+
+echo "🔍 Connecting to $ENV ($HOST) to view logs for '$SERVICE'..."
+echo "Press Ctrl+C to stop streaming."
+echo ""
+
+ssh $SSH_OPTS -t $USER@$HOST "sudo journalctl -u $SERVICE -f -n 100"
