@@ -1,4 +1,4 @@
-.PHONY: help monitor backend salome verify check open-firewall deploy seed sync pull syntax
+.PHONY: help monitor backend salome verify check open-firewall deploy seed sync pull syntax monitoring-urls
 
 SERVICE ?=
 BRANCH ?= main
@@ -22,6 +22,9 @@ help:
 	@echo "Scripts sync:"
 	@echo "  make sync"
 	@echo "  make pull"
+	@echo ""
+	@echo "Monitoring:"
+	@echo "  make monitoring-urls HOST=monitoring-server"
 	@echo ""
 	@echo "Validation:"
 	@echo "  make syntax                 # ansible-playbook --syntax-check"
@@ -57,6 +60,9 @@ sync:
 
 pull:
 	bash ./scripts/pull
+
+monitoring-urls:
+	bash ./scripts/monitoring-urls "$(HOST)"
 
 syntax:
 	ANSIBLE_LOCAL_TEMP="$(CURDIR)/.ansible/tmp" ANSIBLE_SSH_CONTROL_PATH_DIR="$(CURDIR)/.ansible/cp" ansible-playbook -i inventories/prod/hosts.ini site.yml --syntax-check

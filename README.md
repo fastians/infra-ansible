@@ -16,6 +16,15 @@ Run by server name, one at a time; test, then the next:
 
 Or use short names to run provision playbooks: `./scripts/provision monitor`, `./scripts/provision backend`, `./scripts/provision salome`. Use `./scripts/provision verify` to check all servers; `./scripts/provision help` for more.
 
+Get monitoring endpoint URLs for a host:
+
+```bash
+./scripts/monitoring-urls
+./scripts/monitoring-urls monitoring-server
+# or
+make monitoring-urls HOST=monitoring-server
+```
+
 `site.yml` is an orchestrator that imports:
 - `playbooks/site-monitoring.yml`
 - `playbooks/site-base-agents.yml`

@@ -1,0 +1,34 @@
+#!/bin/bash
+# Print monitoring service URLs for a target inventory host.
+# Usage:
+#   ./scripts/monitoring-urls
+#   ./scripts/monitoring-urls monitoring-server
+#   ./scripts/monitoring-urls <inventory-hostname>
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+INVENTORY="${ROOT_DIR}/inventories/prod/hosts.ini"
+HOST="${1:-monitoring-server}"
+
+# Resolve ansible_host from inventory/host_vars. Fallback to host value.
+TARGET_IP="$(ANSIBLE_LOCAL_TEMP="${ROOT_DIR}/.ansible/tmp" ANSIBLE_SSH_CONTROL_PATH_DIR="${ROOT_DIR}/.ansible/cp" \
+  ansible-inventory -i "${INVENTORY}" --host "${HOST}" 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("ansible_host",""))' || true)"
+
+if [ -z "${TARGET_IP}" ]; then
+  TARGET_IP="${HOST}"
+fi
+
+echo "Monitoring URLs for host: ${HOST} (${TARGET_IP})"
+echo ""
+echo "Grafana:            http://${TARGET_IP}:3000"
+echo "Loki:               http://${TARGET_IP}:3100"
+echo "Prometheus:         http://${TARGET_IP}:9090"
+echo "Alertmanager:       http://${TARGET_IP}:9093"
+echo "Blackbox Exporter:  http://${TARGET_IP}:9115"
+echo "Node Exporter:      http://${TARGET_IP}:9100"
+echo ""
+echo "Useful pages:"
+echo "Prometheus targets: http://${TARGET_IP}:9090/targets"
+echo "Prometheus alerts:  http://${TARGET_IP}:9090/alerts"
