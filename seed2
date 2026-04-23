@@ -1,5 +1,5 @@
 #!/bin/bash
-# AWS-specific seeder wrapper
+# AWS-specific seeder wrapper (DB seed only — not .env sync; use ./resync-env backendserver when supported).
 # Usage: ./seed2 backendserver
 #        ./seed2 geoserver
 #        ./seed2 llmserver

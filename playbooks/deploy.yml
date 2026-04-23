@@ -15,6 +15,14 @@
       salomeserver: "/home/mateen_fastians/opt/deploy.sh"
   
   tasks:
+    - name: Validate service name
+      assert:
+        that:
+          - service in script_map
+        fail_msg: >-
+          Invalid service '{{ service }}'. Valid values: {{ script_map.keys() | list | join(', ') }}.
+          If you meant backendserver, check for typo 'backenderver'.
+
     - name: Sync latest deployment script for {{ service }}
       copy:
         src: "../deployment_scripts/{{ service }}.sh"

@@ -4,8 +4,9 @@
 #        ./deploy2 geoserver staging
 #        ./deploy2 llmserver main
 
-SERVICE=$1
+SERVICE=${1:-}
 BRANCH=${2:-main}
+VALID_SERVICES=("backendserver" "geoserver" "llmserver")
 
 if [ -z "$SERVICE" ]; then
     echo "Usage: ./deploy2 <service> [branch]"
@@ -17,6 +18,26 @@ if [ -z "$SERVICE" ]; then
     echo "  ./deploy2 geoserver staging"
     echo "  Rollback: ./deploy2 <service> <previous_branch>   (e.g. ./deploy2 geoserver main)"
     echo ""
+    exit 1
+fi
+
+# Handle common typo to reduce failed deploy attempts.
+if [ "$SERVICE" = "backenderver" ]; then
+    echo "⚠️  Interpreting 'backenderver' as 'backendserver'"
+    SERVICE="backendserver"
+fi
+
+is_valid_service=0
+for svc in "${VALID_SERVICES[@]}"; do
+    if [ "$SERVICE" = "$svc" ]; then
+        is_valid_service=1
+        break
+    fi
+done
+
+if [ "$is_valid_service" -ne 1 ]; then
+    echo "❌ Invalid service: $SERVICE"
+    echo "Valid values: ${VALID_SERVICES[*]}"
     exit 1
 fi
 
