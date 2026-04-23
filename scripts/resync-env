@@ -7,6 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SERVICE="${1:-}"
 HOST_LIMIT="${2:-backend-server}"
+source "${ROOT_DIR}/scripts/lib/load-env.sh"
+load_env_profile "${ROOT_DIR}"
 
 if [[ "$SERVICE" != "backendserver" ]]; then
   echo "Usage: ./scripts/resync-env backendserver [ansible_host_limit]"

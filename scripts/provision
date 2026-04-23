@@ -9,6 +9,8 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 INVENTORY="${ROOT_DIR}/inventories/prod/hosts.ini"
 SITE_PLAYBOOK="${ROOT_DIR}/site.yml"
 PLAYBOOKS_DIR="${ROOT_DIR}/playbooks"
+source "${ROOT_DIR}/scripts/lib/load-env.sh"
+load_env_profile "${ROOT_DIR}"
 
 mkdir -p "${ROOT_DIR}/.ansible/tmp" "${ROOT_DIR}/.ansible/cp"
 

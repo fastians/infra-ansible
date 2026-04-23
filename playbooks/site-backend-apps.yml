@@ -2,6 +2,24 @@
 - name: Backend Server (apps only)
   hosts: backend
   become: yes
+  pre_tasks:
+    - name: Validate backend secret configuration before deployment
+      assert:
+        that:
+          - vault_backend_database_url is defined
+          - vault_backend_database_url | length > 0
+          - vault_backend_database_url != "CHANGE_ME"
+          - vault_backend_database_url is match('^postgresql(\\+[^:]+)?:\\/\\/.+')
+          - vault_backend_secret_key is defined
+          - vault_backend_secret_key | length >= 32
+          - vault_backend_secret_key != "CHANGE_ME"
+          - vault_internal_api_key is defined
+          - vault_internal_api_key | length > 0
+          - vault_internal_api_key != "CHANGE_ME"
+        fail_msg: >-
+          Backend secrets are missing or invalid. Set real values via
+          inventories/prod/group_vars/all/secrets.local.yml (preferred) or
+          VAULT_* environment variables before running this playbook.
   roles:
     - nginx
   tasks:

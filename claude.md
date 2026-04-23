@@ -23,6 +23,8 @@ This document is the operating contract for `infra_ansible`.
 - Use `--limit <host>` when targeting a single server.
 - Use `--tags` for narrow changes.
 - Prefer idempotent re-runs over one-off manual server edits.
+- Keep two env profiles in repo root (gitignored): `.env.local` and `.env.production`.
+- Default script profile is production; use `APP_ENV=local` only for local/dev runs.
 
 Examples:
 

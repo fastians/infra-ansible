@@ -11,10 +11,27 @@
 
 - hosts: backend
   become: yes
+  pre_tasks:
+    - name: Validate backend env values before rendering
+      assert:
+        that:
+          - vault_backend_database_url is defined
+          - vault_backend_database_url | length > 0
+          - vault_backend_database_url != "CHANGE_ME"
+          - vault_backend_database_url is match('^postgresql(\\+[^:]+)?:\\/\\/.+')
+          - vault_backend_secret_key is defined
+          - vault_backend_secret_key | length >= 32
+          - vault_backend_secret_key != "CHANGE_ME"
+          - vault_internal_api_key is defined
+          - vault_internal_api_key | length > 0
+          - vault_internal_api_key != "CHANGE_ME"
+        fail_msg: >-
+          Cannot render backendserver .env with placeholder values.
+          Configure secrets.local.yml or export VAULT_* variables first.
   tasks:
     - name: Render backendserver .env for MEK_LAB_BACKEND
       template:
-        src: roles/python_app/templates/env/backendserver.env.j2
+        src: "{{ playbook_dir }}/../roles/python_app/templates/env/backendserver.env.j2"
         dest: "/home/mateen_fastians/.apps/MEK_LAB_BACKEND/.env"
         owner: mateen_fastians
         group: mateen_fastians

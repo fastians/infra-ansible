@@ -8,6 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 INVENTORY="${ROOT_DIR}/inventories/prod/hosts.ini"
 PLAYBOOK="${ROOT_DIR}/playbooks/deploy.yml"
+source "${ROOT_DIR}/scripts/lib/load-env.sh"
+load_env_profile "${ROOT_DIR}"
 
 SERVICE=${1:-}
 BRANCH=${2:-main}

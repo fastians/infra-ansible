@@ -5,5 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 INVENTORY="${ROOT_DIR}/inventories/prod/hosts.ini"
+source "${ROOT_DIR}/scripts/lib/load-env.sh"
+load_env_profile "${ROOT_DIR}"
 echo "📥 Pulling deployment scripts from servers to local deployment_scripts/..."
 ansible-playbook -i "$INVENTORY" "${ROOT_DIR}/playbooks/pull-scripts-from-server.yml" "$@"

@@ -53,6 +53,24 @@
   become: yes
   notify: reload nginx
 
+- name: Remove legacy nginx site symlinks
+  file:
+    path: "/etc/nginx/sites-enabled/{{ item }}"
+    state: absent
+  loop: "{{ nginx_remove_legacy_configs | default([]) }}"
+  when: item != nginx_config_name
+  become: yes
+  notify: reload nginx
+
+- name: Remove legacy nginx site definitions
+  file:
+    path: "/etc/nginx/sites-available/{{ item }}"
+    state: absent
+  loop: "{{ nginx_remove_legacy_configs | default([]) }}"
+  when: item != nginx_config_name
+  become: yes
+  notify: reload nginx
+
 - name: Remove default nginx site
   file:
     path: /etc/nginx/sites-enabled/default

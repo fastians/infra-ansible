@@ -16,3 +16,7 @@ certbot_admin_email: ""
 nginx_bind_http_to_inventory_ip: false
 # Optional extra server_name tokens on port 80 (e.g. another DNS name during migration).
 nginx_extra_server_names: []
+
+# Remove obsolete configs that can conflict with the canonical nginx_config_name.
+nginx_remove_legacy_configs:
+  - mek-lab.conf

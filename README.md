@@ -45,9 +45,27 @@ Edit `extra_vars.yml` (from `extra_vars.example.yml` if needed); it’s in `.git
 ### Security standard (required)
 
 - Keep production secrets out of tracked files.
-- Use environment variables (recommended) or Ansible Vault for `inventories/prod/group_vars/all/secrets.yml` values.
+- Preferred: keep local production values in `inventories/prod/group_vars/all/zz_secrets.local.yml` (gitignored).
+- Template: `inventories/prod/group_vars/all/zz_secrets.local.example.yml`.
+- Alternative: use environment variables or Ansible Vault for `inventories/prod/group_vars/all/secrets.yml` values.
 - Rotate any credential that was ever committed in plaintext.
 - Keep runtime temp/cache under `infra_ansible/.ansible/` (already ignored).
+
+### Environment profiles (`.env.local` and `.env.production`)
+
+- Scripts in `scripts/` auto-load `infra_ansible/.env.production` by default.
+- Use `APP_ENV=local` (or `ENV=local`) to load `infra_ansible/.env.local`.
+- Example templates:
+  - `.env.production.example`
+  - `.env.local.example`
+
+```bash
+# default: loads .env.production
+./scripts/provision backend-server
+
+# local profile
+APP_ENV=local ./scripts/provision backend-server
+```
 
 Example (environment-driven run):
 

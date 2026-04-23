@@ -1,6 +1,10 @@
 # Environment files (contain secrets)
 config_files/env/*.env
 !config_files/env/*.env.example
+.env.local
+.env.production
+!.env.local.example
+!.env.production.example
 
 # Ansible vault password
 .vault_pass
@@ -9,6 +13,7 @@ config_files/env/*.env
 # Secrets
 **/secrets.yml
 **/secrets.example.yml
+inventories/prod/group_vars/all/zz_secrets.local.yml
 extra_vars.yml
 
 # Backups
