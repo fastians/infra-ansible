@@ -1,15 +1,16 @@
 #!/bin/bash
 # Quick provisioning wrapper script
-# Usage: ./provision <server> [options]
+# Usage: ./scripts/provision <server> [options]
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INVENTORY="${SCRIPT_DIR}/inventories/prod/hosts.ini"
-SITE_PLAYBOOK="${SCRIPT_DIR}/site.yml"
-PLAYBOOKS_DIR="${SCRIPT_DIR}/playbooks"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+INVENTORY="${ROOT_DIR}/inventories/prod/hosts.ini"
+SITE_PLAYBOOK="${ROOT_DIR}/site.yml"
+PLAYBOOKS_DIR="${ROOT_DIR}/playbooks"
 
-mkdir -p "${SCRIPT_DIR}/.ansible/tmp" "${SCRIPT_DIR}/.ansible/cp"
+mkdir -p "${ROOT_DIR}/.ansible/tmp" "${ROOT_DIR}/.ansible/cp"
 
 run_playbook() {
     local playbook="$1"
@@ -21,7 +22,7 @@ show_help() {
     cat << EOF
 Server Provisioning Tool
 
-Usage: ./provision <server|command> [options]
+Usage: ./scripts/provision <server|command> [options]
 
 Run site.yml for one server (by name):
   monitoring-server   Monitor (brain + probe) only
@@ -29,9 +30,9 @@ Run site.yml for one server (by name):
   backend-server     Backend app server only
 
 Examples:
-  ./provision monitoring-server
-  ./provision salome-server -vv
-  ./provision backend-server
+  ./scripts/provision monitoring-server
+  ./scripts/provision salome-server -vv
+  ./scripts/provision backend-server
 
 Other commands:
   monitor             Same as monitoring-server, uses provision-monitor.yml
@@ -51,7 +52,7 @@ Options:
 EOF
 }
 
-case "$1" in
+case "${1:-}" in
     "")
         show_help
         exit 1
@@ -86,13 +87,13 @@ case "$1" in
         echo "🚀 Provisioning Salome Server..."
         run_playbook "${PLAYBOOKS_DIR}/provision-salome.yml" "$@"
         ;;
-    
+
     backend)
         shift
         echo "🚀 Provisioning Backend Server..."
         run_playbook "${PLAYBOOKS_DIR}/provision-backend.yml" "$@"
         ;;
-    
+
     verify)
         shift
         echo "🔍 Verifying All Servers..."
@@ -106,7 +107,7 @@ case "$1" in
         ;;
 
     check)
-        if [ -z "$2" ]; then
+        if [ -z "${2:-}" ]; then
             echo "❌ Error: Please specify server (monitoring-server, backend-server, salome-server)"
             exit 1
         fi
@@ -115,7 +116,7 @@ case "$1" in
         echo "🔍 Checking $SERVER..."
         run_playbook "${PLAYBOOKS_DIR}/verify-servers.yml" --limit "$SERVER" "$@"
         ;;
-    
+
     help|--help|-h)
         show_help
         ;;
@@ -124,7 +125,7 @@ case "$1" in
         echo "❌ Unknown: '$1'"
         echo ""
         echo "Use a server name: monitoring-server, salome-server, backend-server"
-        echo "Or: ./provision help"
+        echo "Or: ./scripts/provision help"
         exit 1
         ;;
 esac

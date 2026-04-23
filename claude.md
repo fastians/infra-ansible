@@ -15,11 +15,11 @@ This document is the operating contract for `infra_ansible`.
 - Host-specific overrides: `inventories/prod/host_vars/*.yml`
 - Shared environment config: `inventories/prod/group_vars/**/*.yml`
 - Main orchestration: `site.yml`
-- Day-2 wrapper: `./provision`
+- Day-2 wrapper: `./scripts/provision`
 
 ## Required Runtime Pattern
 
-- Always run via `./provision` for routine operations.
+- Always run via `./scripts/provision` (or `make`) for routine operations.
 - Use `--limit <host>` when targeting a single server.
 - Use `--tags` for narrow changes.
 - Prefer idempotent re-runs over one-off manual server edits.
@@ -27,9 +27,9 @@ This document is the operating contract for `infra_ansible`.
 Examples:
 
 ```bash
-./provision monitoring-server
-./provision backend-server --tags nginx
-./provision verify
+./scripts/provision monitoring-server
+./scripts/provision backend-server --tags nginx
+./scripts/provision verify
 ```
 
 ## Security Standard
@@ -59,14 +59,6 @@ monitoring_enabled: false
 ## Change Checklist
 
 - [ ] `ansible-inventory --host <host>` resolves expected vars.
-- [ ] `./provision <host> --check` passes for touched area when practical.
+- [ ] `./scripts/provision <host> --check` passes for touched area when practical.
 - [ ] Real run uses minimal scope (`--limit` / `--tags`).
 - [ ] Docs/README updated when behavior changes.
-# Legacy pointer
-
-Canonical guidance moved to `CLAUDE.md`.
-
-Use:
-
-- `CLAUDE.md` for current engineering standards
-- `README.md` for day-to-day operational commands

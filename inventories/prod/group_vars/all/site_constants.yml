@@ -13,7 +13,7 @@ contact_email: "contact@mek-lab.com"
 #    Examples: backend-server, backend-aws, salome-server, monitoring-server
 #    Pattern: <role>-<hint> — "server" means the machine, not the systemd unit.
 #
-# 2) Processes (systemd + ./deploy + journalctl -u)
+# 2) Processes (systemd + ./scripts/deploy + journalctl -u)
 #    On API host: backendserver:8000, geoserver:8001, llmserver:8002
 #    On Salome host: salomeserver:8000
 #    These names are stable API — renaming requires a migration on every host.

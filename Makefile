@@ -8,12 +8,12 @@ help:
 	@echo "infra_ansible Make targets"
 	@echo ""
 	@echo "Provisioning:"
-	@echo "  make monitor                # ./provision monitoring-server"
-	@echo "  make backend                # ./provision backend-server"
-	@echo "  make salome                 # ./provision salome-server"
-	@echo "  make verify                 # ./provision verify"
+	@echo "  make monitor                # scripts/provision monitoring-server"
+	@echo "  make backend                # scripts/provision backend-server"
+	@echo "  make salome                 # scripts/provision salome-server"
+	@echo "  make verify                 # scripts/provision verify"
 	@echo "  make check HOST=backend-server"
-	@echo "  make open-firewall          # ./provision open-firewall-ports"
+	@echo "  make open-firewall          # scripts/provision open-firewall-ports"
 	@echo ""
 	@echo "Deploy/Seed:"
 	@echo "  make deploy SERVICE=backendserver BRANCH=main"
@@ -27,36 +27,36 @@ help:
 	@echo "  make syntax                 # ansible-playbook --syntax-check"
 
 monitor:
-	./provision monitoring-server
+	bash ./scripts/provision monitoring-server
 
 backend:
-	./provision backend-server
+	bash ./scripts/provision backend-server
 
 salome:
-	./provision salome-server
+	bash ./scripts/provision salome-server
 
 verify:
-	./provision verify
+	bash ./scripts/provision verify
 
 check:
-	./provision check "$(HOST)"
+	bash ./scripts/provision check "$(HOST)"
 
 open-firewall:
-	./provision open-firewall-ports
+	bash ./scripts/provision open-firewall-ports
 
 deploy:
 	@if [ -z "$(SERVICE)" ]; then echo "SERVICE is required"; exit 1; fi
-	./deploy "$(SERVICE)" "$(BRANCH)"
+	bash ./scripts/deploy "$(SERVICE)" "$(BRANCH)"
 
 seed:
 	@if [ -z "$(SERVICE)" ]; then echo "SERVICE is required"; exit 1; fi
-	./seed "$(SERVICE)"
+	bash ./scripts/seed "$(SERVICE)"
 
 sync:
-	./sync
+	bash ./scripts/sync
 
 pull:
-	./pull
+	bash ./scripts/pull
 
 syntax:
 	ANSIBLE_LOCAL_TEMP="$(CURDIR)/.ansible/tmp" ANSIBLE_SSH_CONTROL_PATH_DIR="$(CURDIR)/.ansible/cp" ansible-playbook -i inventories/prod/hosts.ini site.yml --syntax-check

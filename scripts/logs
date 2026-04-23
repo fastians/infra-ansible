@@ -1,14 +1,17 @@
 #!/bin/bash
 # Log viewer wrapper for Mek-Lab Infrastructure
-# Usage: ./logs <service> [std|aws]
+# Usage: ./scripts/logs <service> [std|aws]
 
-SERVICE=$1
-ENV=${2:-std}
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# Help message
+SERVICE="${1:-}"
+ENV="${2:-std}"
+
 if [ -z "$SERVICE" ] || [ "$SERVICE" = "-h" ] || [ "$SERVICE" = "--help" ]; then
     echo "Mek-Lab Log Viewer"
-    echo "Usage: ./logs <service> [env]"
+    echo "Usage: ./scripts/logs <service> [env]"
     echo ""
     echo "Services:"
     echo "  backendserver    (Core API)"
@@ -21,16 +24,15 @@ if [ -z "$SERVICE" ] || [ "$SERVICE" = "-h" ] || [ "$SERVICE" = "--help" ]; then
     echo "  aws              (Amazon Web Services)"
     echo ""
     echo "Examples:"
-    echo "  ./logs backendserver"
-    echo "  ./logs backendserver aws"
-    echo "  ./logs geoserver std"
+    echo "  ./scripts/logs backendserver"
+    echo "  ./scripts/logs backendserver aws"
+    echo "  ./scripts/logs geoserver std"
     exit 1
 fi
 
-# Configuration mapping from hosts.ini
 AWS_HOST="3.37.166.78"
 AWS_USER="ubuntu"
-AWS_KEY="AWS.pem"
+AWS_KEY="${ROOT_DIR}/AWS.pem"
 
 STD_BACKEND_HOST="34.64.140.26"
 STD_BACKEND_USER="mateen_fastians"
@@ -38,7 +40,6 @@ STD_BACKEND_USER="mateen_fastians"
 STD_SALOME_HOST="34.64.150.177"
 STD_SALOME_USER="mateen_fastians"
 
-# Determine target
 if [ "$ENV" = "aws" ]; then
     HOST=$AWS_HOST
     USER=$AWS_USER

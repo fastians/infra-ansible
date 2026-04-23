@@ -1,0 +1,9 @@
+#!/bin/bash
+# Pull deployment scripts FROM servers to local deployment_scripts/
+# Usage: ./scripts/pull
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+INVENTORY="${ROOT_DIR}/inventories/prod/hosts.ini"
+echo "📥 Pulling deployment scripts from servers to local deployment_scripts/..."
+ansible-playbook -i "$INVENTORY" "${ROOT_DIR}/playbooks/pull-scripts-from-server.yml" "$@"

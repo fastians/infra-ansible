@@ -2,7 +2,7 @@
 # Re-render MEK_LAB_BACKEND .env from Ansible vars (e.g. vault_openrouter_api_key) and restart backendserver.
 #
 # This is the right way to push OpenRouter / env changes without a full code deploy.
-# ./seed backendserver only runs the DB seeder — it does NOT refresh .env.
+# ./scripts/seed backendserver only runs the DB seeder — it does NOT refresh .env.
 #
 # Usage (from infra_ansible):
 #   ansible-playbook -i inventories/prod/hosts.ini playbooks/resync-backendserver-env.yml --limit backend-server

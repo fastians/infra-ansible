@@ -1,0 +1,29 @@
+#!/bin/bash
+# Main server seeder wrapper (runs ./db.sh seed in the app dir — database seed only).
+# Usage: ./scripts/seed backendserver
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+INVENTORY="${ROOT_DIR}/inventories/prod/hosts.ini"
+PLAYBOOK="${ROOT_DIR}/playbooks/seed.yml"
+
+SERVICE=${1:-}
+
+if [ -z "$SERVICE" ]; then
+    echo "Usage: ./scripts/seed <service>"
+    echo ""
+    echo "Services: backendserver, geoserver, llmserver"
+    echo ""
+    echo "Examples:"
+    echo "  ./scripts/seed backendserver"
+    exit 1
+fi
+
+TARGET="backend-server"
+
+echo "🌱 Running seeder for $SERVICE on $TARGET..."
+ansible-playbook -i "$INVENTORY" "$PLAYBOOK" \
+    -e service="$SERVICE" \
+    -e target="$TARGET"

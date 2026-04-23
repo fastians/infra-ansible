@@ -1,0 +1,21 @@
+#!/bin/bash
+# Push templated .env to the API host and restart systemd (no git pull).
+# Usage: ./scripts/resync-env backendserver
+
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SERVICE="${1:-}"
+HOST_LIMIT="${2:-backend-server}"
+
+if [[ "$SERVICE" != "backendserver" ]]; then
+  echo "Usage: ./scripts/resync-env backendserver [ansible_host_limit]"
+  echo ""
+  echo "Currently only backendserver is supported (MEK_LAB_BACKEND .env + restart)."
+  echo "Example: ./scripts/resync-env backendserver"
+  echo "         ./scripts/resync-env backendserver backend-server"
+  exit 1
+fi
+
+echo "🔧 Re-syncing backendserver .env on --limit ${HOST_LIMIT} ..."
+ansible-playbook -i "${ROOT_DIR}/inventories/prod/hosts.ini" "${ROOT_DIR}/playbooks/resync-backendserver-env.yml" --limit "${HOST_LIMIT}"

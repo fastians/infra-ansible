@@ -1,29 +1,32 @@
 #!/bin/bash
 # Main server deployment wrapper
-# Usage: ./deploy backendserver main
-#        ./deploy geoserver staging
-#        ./deploy llmserver main
-#        ./deploy salomeserver develop
+# Usage: ./scripts/deploy backendserver main
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+INVENTORY="${ROOT_DIR}/inventories/prod/hosts.ini"
+PLAYBOOK="${ROOT_DIR}/playbooks/deploy.yml"
 
 SERVICE=${1:-}
 BRANCH=${2:-main}
 VALID_SERVICES=("backendserver" "geoserver" "llmserver" "salomeserver")
 
 if [ -z "$SERVICE" ]; then
-    echo "Usage: ./deploy <service> [branch]"
+    echo "Usage: ./scripts/deploy <service> [branch]"
     echo ""
     echo "Services: backendserver, geoserver, llmserver, salomeserver"
     echo ""
     echo "Examples:"
-    echo "  ./deploy backendserver main"
-    echo "  ./deploy geoserver staging"
-    echo "  Rollback: ./deploy <service> <previous_branch>   (e.g. ./deploy geoserver main)"
+    echo "  ./scripts/deploy backendserver main"
+    echo "  ./scripts/deploy geoserver staging"
+    echo "  Rollback: ./scripts/deploy <service> <previous_branch>   (e.g. ./scripts/deploy geoserver main)"
     echo ""
     echo "See docs/DEPLOYMENT.md for rollback and safety."
     exit 1
 fi
 
-# Handle common typo to reduce failed deploy attempts.
 if [ "$SERVICE" = "backenderver" ]; then
     echo "⚠️  Interpreting 'backenderver' as 'backendserver'"
     SERVICE="backendserver"
@@ -43,16 +46,14 @@ if [ "$is_valid_service" -ne 1 ]; then
     exit 1
 fi
 
-# Determine target server
 if [ "$SERVICE" = "salomeserver" ]; then
     TARGET="salome"
 else
-    # Target the specific main backend host (from hosts.ini)
     TARGET="backend-server"
 fi
 
 echo "🚀 Deploying $SERVICE from branch $BRANCH..."
-ansible-playbook -i inventories/prod/hosts.ini playbooks/deploy.yml \
-    -e service=$SERVICE \
-    -e branch=$BRANCH \
-    -e target=$TARGET
+ansible-playbook -i "$INVENTORY" "$PLAYBOOK" \
+    -e service="$SERVICE" \
+    -e branch="$BRANCH" \
+    -e target="$TARGET"

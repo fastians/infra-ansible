@@ -1,0 +1,7 @@
+#!/bin/bash
+# Sync deployment scripts to servers
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+echo "📦 Syncing deployment scripts to servers..."
+ansible-playbook -i "${ROOT_DIR}/inventories/prod/hosts.ini" "${ROOT_DIR}/playbooks/sync-scripts.yml"

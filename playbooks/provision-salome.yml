@@ -89,6 +89,6 @@
           - "Next Steps:"
           - "1. Configure SSL: sudo certbot --nginx -d {{ salome_public_host }}"
           - "2. Check logs: journalctl -u salomeserver -f"
-          - "3. Deploy updates: ./deploy salomeserver main"
+          - "3. Deploy updates: ./scripts/deploy salomeserver main"
           - "=========================================="
       tags: [always]

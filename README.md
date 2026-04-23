@@ -7,14 +7,14 @@ A professional-grade infrastructure-as-code (IaC) project designed to automate t
 Run by server name, one at a time; test, then the next:
 
 ```bash
-./provision monitoring-server   # Monitor (Prometheus, Grafana, Loki, Alertmanager, Blackbox)
-./provision backend-server      # Backend: one machine, three FastAPI apps (backendserver, geoserver, llmserver)
-./provision salome-server      # Salome app server
+./scripts/provision monitoring-server   # Monitor (Prometheus, Grafana, Loki, Alertmanager, Blackbox)
+./scripts/provision backend-server      # Backend: one machine, three FastAPI apps (backendserver, geoserver, llmserver)
+./scripts/provision salome-server       # Salome app server
 ```
 
-`./provision` resolves inventory and playbook paths from its own directory, so you can run it from any working directory.
+`./scripts/provision` resolves inventory and playbook paths from the repo directory, so you can run it from any working directory.
 
-Or use short names to run provision playbooks: `./provision monitor`, `./provision backend`, `./provision salome`. Use `./provision verify` to check all servers; `./provision help` for more.
+Or use short names to run provision playbooks: `./scripts/provision monitor`, `./scripts/provision backend`, `./scripts/provision salome`. Use `./scripts/provision verify` to check all servers; `./scripts/provision help` for more.
 
 `site.yml` is an orchestrator that imports:
 - `playbooks/site-monitoring.yml`
@@ -47,7 +47,7 @@ export VAULT_BACKEND_DATABASE_URL='postgresql://...'
 export VAULT_BACKEND_SECRET_KEY='...'
 export ALERTMANAGER_TELEGRAM_BOT_TOKEN='...'
 export ALERTMANAGER_TELEGRAM_CHAT_ID='...'
-./provision monitoring-server -e @extra_vars.yml
+./scripts/provision monitoring-server -e @extra_vars.yml
 ```
 
 ### Run only what changed (faster)
@@ -71,7 +71,7 @@ Tags: `alerts` (prometheus + alertmanager), `common`, `node_exporter`, `promethe
 
 ## 🌟 Key Features
 
-- **Automated Provisioning**: One-touch deployment for server clusters using Ansible (`./provision`, `site.yml`).
+- **Automated Provisioning**: One-touch deployment for server clusters using Ansible (`./scripts/provision`, `site.yml`).
 - **Microservices Orchestration**: Backend server runs three FastAPI apps (ports 8000, 8001, 8002); Salome runs one (8000).
 - **Enterprise Monitoring**: Dedicated monitor server with **Prometheus**, **Grafana**, **Loki**, **Alertmanager**, **Blackbox Exporter**; **Promtail** and **Node Exporter** on app servers.
 - **Secure by Design**: Secret management, automated SSL (Certbot), Nginx reverse proxy.
@@ -89,7 +89,7 @@ Tags: `alerts` (prometheus + alertmanager), `common`, `node_exporter`, `promethe
 
 - **Repeatable Setup**: Scripted server and app deployment.
 - **Centralized Visibility**: One dashboard for metrics and logs (Grafana → Prometheus/Loki).
-- **Developer Efficiency**: Simple replication and management via `./provision` and `./deploy`.
+- **Developer Efficiency**: Simple replication and management via `./scripts/provision` and `./scripts/deploy`.
 
 ## Operations & reliability
 
