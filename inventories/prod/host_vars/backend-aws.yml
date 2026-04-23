@@ -1,6 +1,7 @@
 ---
 # Default app Python is backend_app_python_version in group_vars/backend.yml (3.12). GEO uses 3.10 on Jammy (FreeCAD ABI).
 app_skip_git_sync: false
+monitoring_enabled: false
 
 # Use same repo path as current working backend server.
 vault_geoserver_engineering_repo_url: "git@github.com:mek-lab/MEK_LAB_GEO.git"

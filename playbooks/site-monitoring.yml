@@ -1,0 +1,12 @@
+---
+- name: Monitor Server (brain + probe)
+  hosts: monitoring
+  become: yes
+  roles:
+    - { role: common, tags: [common] }
+    - { role: node_exporter, tags: [node_exporter] }
+    - { role: prometheus, tags: [prometheus, alerts] }
+    - { role: loki, tags: [loki] }
+    - { role: grafana, tags: [grafana] }
+    - { role: alertmanager, tags: [alertmanager, alerts] }
+    - { role: blackbox_exporter, tags: [blackbox_exporter] }

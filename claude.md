@@ -1,50 +1,72 @@
-# Claude AI Context
+# CLAUDE.md - Infra Ansible Engineering Standard
 
-Ansible infrastructure automation: monitoring, provisioning, deployment, configuration management.
+This document is the operating contract for `infra_ansible`.
 
-## Core Capabilities
-1. **Provisioning**: Deploy servers from scratch (`site.yml` or `./provision` with provision-* playbooks)
-2. **Deployment**: Update applications with branch selection (`./deploy`)
-3. **Configuration**: Modular roles for `python_app`, `nginx`, and monitoring
-4. **Monitoring**: Dedicated monitor server (brain + probe); Prometheus, Grafana, Loki, Alertmanager, Blackbox Exporter; Promtail and Node Exporter on app servers
+## Goals
 
-## Structure
-- `inventories/prod/hosts.ini`: Inventory (backend-server, backend-aws, salome-server, monitoring-server); often gitignored locally
-- `inventories/prod/group_vars/`: all/all.yml, all/site_constants.yml (`primary_domain`, `api_public_host`, `salome_public_host`, `contact_email`), all/secrets.yml, backend.yml, salome.yml, monitoring.yml
-- `inventories/prod/host_vars/`: per-host (e.g. `backend-aws.yml`, `prometheus_instance`)
-- `roles/`: python_app, nginx, common; prometheus, grafana, loki, alertmanager, blackbox_exporter (monitor); promtail, node_exporter (app servers + monitor)
-- `playbooks/`: provision-*.yml, deploy.yml, sync-scripts.yml, manage-services.yml, verify-servers.yml, open-firewall-ports.yml, salome-debug.yml, test-api-docs.yml; app units come from site.yml (single source of truth)
-- `docs/`: ARCHITECTURE.md, OPERATIONS.md, CONFIGURATION.md
+- Keep provisioning deterministic and repeatable.
+- Minimize production risk during updates.
+- Keep host targeting explicit and auditable.
+- Keep secrets out of git-tracked plaintext files.
 
-## Quick Commands
+## Source of Truth
+
+- Inventory: `inventories/prod/hosts.ini`
+- Host-specific overrides: `inventories/prod/host_vars/*.yml`
+- Shared environment config: `inventories/prod/group_vars/**/*.yml`
+- Main orchestration: `site.yml`
+- Day-2 wrapper: `./provision`
+
+## Required Runtime Pattern
+
+- Always run via `./provision` for routine operations.
+- Use `--limit <host>` when targeting a single server.
+- Use `--tags` for narrow changes.
+- Prefer idempotent re-runs over one-off manual server edits.
+
+Examples:
+
 ```bash
-# Provisioning (short names → provision-*.yml; full names → site.yml --limit)
-./provision monitor             # or monitoring-server
-./provision backend             # or backend-server
-./provision salome              # or salome-server
-./provision verify              # Verify all servers
-./provision open-firewall-ports
-
-# Deployment
-./deploy <service> <branch>     # Deploy application
-./sync                         # Push local deployment_scripts/ to servers
-./pull                         # Pull deployment scripts from servers to local
-
-# Management
-ansible-playbook -i inventories/prod/hosts.ini site.yml
-ansible-playbook -i inventories/prod/hosts.ini playbooks/manage-services.yml
+./provision monitoring-server
+./provision backend-server --tags nginx
+./provision verify
 ```
 
-## Infrastructure Model
-- **monitoring-server** (brain + probe): Prometheus, Grafana, Loki, Alertmanager, Blackbox Exporter; Node Exporter, Promtail
-- **backend-server** / **backend-aws** (`api_public_host`, default `api.mek-lab.com`): **One machine each** (or duplicate API stack), three FastAPI apps — backendserver:8000, geoserver:8001, llmserver:8002; Promtail, Node Exporter, Nginx + Certbot
-- **salome-server** (`salome_public_host`, default `salome.mek-lab.com`): FastAPI salomeserver:8000; Promtail, Node Exporter, Nginx + Certbot
+## Security Standard
 
-## Standard Service Names & Ports
-- `backendserver` (8000), `geoserver` (8001), `llmserver` (8002), `salomeserver` (8000)
+- Never commit plaintext credentials/tokens.
+- Use environment variables or Ansible Vault for secret values.
+- Keep runtime files in `infra_ansible/.ansible/` (gitignored).
+- If a secret is exposed, rotate it immediately.
 
-## Documentation
-- `README.md`: Entry point & quick reference
-- `docs/ARCHITECTURE.md`: Technical overview & data flows
-- `docs/OPERATIONS.md`: Provisioning & deployment
-- `docs/CONFIGURATION.md`: Secrets, env files, Nginx
+## Inventory and Host Standards
+
+- Keep host connection details in `host_vars/<host>.yml` when possible.
+- Use simple host names in `hosts.ini`; avoid long inline connection strings.
+- If a host should not be scraped by monitoring, set:
+
+```yaml
+monitoring_enabled: false
+```
+
+## Monitoring/Alerting Standards
+
+- Prometheus target generation must be inventory-driven.
+- Alert rules should identify service and target clearly.
+- Alertmanager routing should degrade safely when optional integrations are unset.
+- Any false-positive flood should be fixed in config/templates, not muted manually.
+
+## Change Checklist
+
+- [ ] `ansible-inventory --host <host>` resolves expected vars.
+- [ ] `./provision <host> --check` passes for touched area when practical.
+- [ ] Real run uses minimal scope (`--limit` / `--tags`).
+- [ ] Docs/README updated when behavior changes.
+# Legacy pointer
+
+Canonical guidance moved to `CLAUDE.md`.
+
+Use:
+
+- `CLAUDE.md` for current engineering standards
+- `README.md` for day-to-day operational commands

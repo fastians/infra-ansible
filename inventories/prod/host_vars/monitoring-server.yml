@@ -1,2 +1,6 @@
 ---
+ansible_host: 13.124.167.78
+ansible_user: ubuntu
+ansible_ssh_private_key_file: "{{ lookup('env', 'HOME') }}/.ssh/id_ed25519"
+
 prometheus_instance: monitor

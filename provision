@@ -2,9 +2,20 @@
 # Quick provisioning wrapper script
 # Usage: ./provision <server> [options]
 
-set -e
+set -euo pipefail
 
-INVENTORY="inventories/prod/hosts.ini"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INVENTORY="${SCRIPT_DIR}/inventories/prod/hosts.ini"
+SITE_PLAYBOOK="${SCRIPT_DIR}/site.yml"
+PLAYBOOKS_DIR="${SCRIPT_DIR}/playbooks"
+
+mkdir -p "${SCRIPT_DIR}/.ansible/tmp" "${SCRIPT_DIR}/.ansible/cp"
+
+run_playbook() {
+    local playbook="$1"
+    shift
+    ansible-playbook -i "$INVENTORY" "$playbook" "$@"
+}
 
 show_help() {
     cat << EOF
@@ -41,52 +52,57 @@ EOF
 }
 
 case "$1" in
+    "")
+        show_help
+        exit 1
+        ;;
+
     monitoring-server)
         shift
         echo "▶ Running site.yml for monitoring-server only"
-        ansible-playbook -i "$INVENTORY" site.yml --limit monitoring-server "$@"
+        run_playbook "$SITE_PLAYBOOK" --limit monitoring-server "$@"
         ;;
 
     salome-server)
         shift
         echo "▶ Running site.yml for salome-server only"
-        ansible-playbook -i "$INVENTORY" site.yml --limit salome-server "$@"
+        run_playbook "$SITE_PLAYBOOK" --limit salome-server "$@"
         ;;
 
     backend-server)
         shift
         echo "▶ Running site.yml for backend-server only"
-        ansible-playbook -i "$INVENTORY" site.yml --limit backend-server "$@"
+        run_playbook "$SITE_PLAYBOOK" --limit backend-server "$@"
         ;;
 
     monitor)
         shift
         echo "🚀 Provisioning Monitor Server (brain + probe)..."
-        ansible-playbook -i "$INVENTORY" playbooks/provision-monitor.yml "$@"
+        run_playbook "${PLAYBOOKS_DIR}/provision-monitor.yml" "$@"
         ;;
 
     salome)
         shift
         echo "🚀 Provisioning Salome Server..."
-        ansible-playbook -i "$INVENTORY" playbooks/provision-salome.yml "$@"
+        run_playbook "${PLAYBOOKS_DIR}/provision-salome.yml" "$@"
         ;;
     
     backend)
         shift
         echo "🚀 Provisioning Backend Server..."
-        ansible-playbook -i "$INVENTORY" playbooks/provision-backend.yml "$@"
+        run_playbook "${PLAYBOOKS_DIR}/provision-backend.yml" "$@"
         ;;
     
     verify)
         shift
         echo "🔍 Verifying All Servers..."
-        ansible-playbook -i "$INVENTORY" playbooks/verify-servers.yml "$@"
+        run_playbook "${PLAYBOOKS_DIR}/verify-servers.yml" "$@"
         ;;
 
     open-firewall-ports|open-monitoring-ports)
         shift
         echo "🔓 Opening firewall ports (monitor + backend/salome for Prometheus)..."
-        ansible-playbook -i "$INVENTORY" playbooks/open-firewall-ports.yml "$@"
+        run_playbook "${PLAYBOOKS_DIR}/open-firewall-ports.yml" "$@"
         ;;
 
     check)
@@ -97,7 +113,7 @@ case "$1" in
         SERVER="$2"
         shift 2
         echo "🔍 Checking $SERVER..."
-        ansible-playbook -i "$INVENTORY" playbooks/verify-servers.yml --limit "$SERVER" "$@"
+        run_playbook "${PLAYBOOKS_DIR}/verify-servers.yml" --limit "$SERVER" "$@"
         ;;
     
     help|--help|-h)

@@ -1,0 +1,8 @@
+---
+- name: Application Servers (backend + salome)
+  hosts: backend,salome
+  become: yes
+  roles:
+    - common
+    - node_exporter
+    - promtail

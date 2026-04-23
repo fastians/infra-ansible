@@ -15,5 +15,5 @@ blackbox_probe_targets:
   - "https://{{ salome_public_host }}/health"
 
 # Telegram: Alertmanager sends alerts here. Set both to enable; or pass -e alertmanager_telegram_bot_token=TOKEN -e alertmanager_telegram_chat_id=CHAT_ID
-alertmanager_telegram_bot_token: ""
-alertmanager_telegram_chat_id: ""
+alertmanager_telegram_bot_token: "{{ lookup('env', 'ALERTMANAGER_TELEGRAM_BOT_TOKEN') | default('', true) }}"
+alertmanager_telegram_chat_id: "{{ lookup('env', 'ALERTMANAGER_TELEGRAM_CHAT_ID') | default('', true) }}"

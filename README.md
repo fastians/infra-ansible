@@ -12,7 +12,15 @@ Run by server name, one at a time; test, then the next:
 ./provision salome-server      # Salome app server
 ```
 
+`./provision` resolves inventory and playbook paths from its own directory, so you can run it from any working directory.
+
 Or use short names to run provision playbooks: `./provision monitor`, `./provision backend`, `./provision salome`. Use `./provision verify` to check all servers; `./provision help` for more.
+
+`site.yml` is an orchestrator that imports:
+- `playbooks/site-monitoring.yml`
+- `playbooks/site-base-agents.yml`
+- `playbooks/site-backend-apps.yml`
+- `playbooks/site-salome-apps.yml`
 
 ### Vars from file (no long command line)
 
@@ -24,6 +32,23 @@ ansible-playbook -i inventories/prod/hosts.ini site.yml --limit monitoring-serve
 ```
 
 Edit `extra_vars.yml` (from `extra_vars.example.yml` if needed); it’s in `.gitignore` so it is not committed.
+
+### Security standard (required)
+
+- Keep production secrets out of tracked files.
+- Use environment variables (recommended) or Ansible Vault for `inventories/prod/group_vars/all/secrets.yml` values.
+- Rotate any credential that was ever committed in plaintext.
+- Keep runtime temp/cache under `infra_ansible/.ansible/` (already ignored).
+
+Example (environment-driven run):
+
+```bash
+export VAULT_BACKEND_DATABASE_URL='postgresql://...'
+export VAULT_BACKEND_SECRET_KEY='...'
+export ALERTMANAGER_TELEGRAM_BOT_TOKEN='...'
+export ALERTMANAGER_TELEGRAM_CHAT_ID='...'
+./provision monitoring-server -e @extra_vars.yml
+```
 
 ### Run only what changed (faster)
 
@@ -83,3 +108,5 @@ Grafana includes an **SLO overview** dashboard (7d availability, error-budget vi
 ---
 
 *For AI/automation context (structure, commands, service names), see [CLAUDE.md](CLAUDE.md). For operations and architecture, see `docs/`.*
+
+Legacy `claude.md` remains as a pointer for compatibility; use `CLAUDE.md` as canonical.
