@@ -28,18 +28,6 @@
     group: "{{ app_user }}"
     mode: '0755'
   become: yes
-- name: Create extra application directories
-  file:
-    path: "{{ app_base_dir }}/{{ app_name }}/{{ extra_dir }}"
-    state: directory
-    owner: "{{ app_user }}"
-    group: "{{ app_user }}"
-    mode: '0755'
-  loop: "{{ app_extra_dirs }}"
-  loop_control:
-    loop_var: extra_dir
-  become: yes
-  when: app_extra_dirs | default([]) | length > 0
 
 - name: Check if repository already exists
   stat:
@@ -47,6 +35,22 @@
   register: repo_exists
   become: yes
   become_user: "{{ app_user }}"
+
+- name: Stat application checkout root
+  stat:
+    path: "{{ app_base_dir }}/{{ app_name }}"
+  register: app_root_stat
+  become: yes
+
+- name: Quarantine stale non-repository checkout (e.g. partial run left dirs without .git)
+  command: mv "{{ app_base_dir }}/{{ app_name }}" "{{ app_base_dir }}/{{ app_name }}.stale-{{ ansible_facts['date_time']['epoch'] }}"
+  become: yes
+  become_user: "{{ app_user }}"
+  when:
+    - app_root_stat.stat.exists | default(false)
+    - app_root_stat.stat.isdir | default(false)
+    - not repo_exists.stat.exists | default(false)
+    - not app_skip_git_sync | default(false)
 
 - name: Clone repository
   git:
@@ -75,6 +79,19 @@
   when: repo_exists.stat.exists and (not app_skip_git_sync | default(false))
   register: git_update
   changed_when: "'Already up to date' not in git_update.stdout"
+
+- name: Create extra application directories
+  file:
+    path: "{{ app_base_dir }}/{{ app_name }}/{{ extra_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0755'
+  loop: "{{ app_extra_dirs }}"
+  loop_control:
+    loop_var: extra_dir
+  become: yes
+  when: app_extra_dirs | default([]) | length > 0
 
 - name: Create Python virtual environment
   command: "python{{ app_python_version }} -m venv {{ app_base_dir }}/{{ app_name }}/.venv"

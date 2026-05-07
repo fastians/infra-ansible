@@ -1,7 +1,4 @@
-server {
-    server_name {{ nginx_server_name }};
-    client_max_body_size 10M;
-
+{% macro salome_app_locations() %}
     location / {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
@@ -10,20 +7,38 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 600s;
     }
+{% endmacro %}
 
+{% if nginx_le_cert_present | default(false) %}
+server {
     listen 443 ssl;
-    ssl_certificate /etc/letsencrypt/live/{{ nginx_server_name }}/fullchain.pem;
+    server_name {{ nginx_server_name }};
+    client_max_body_size 10M;
+
+    ssl_certificate     /etc/letsencrypt/live/{{ nginx_server_name }}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/{{ nginx_server_name }}/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    include             /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
+
+{{ salome_app_locations() }}
 }
 
+{% endif %}
+
 server {
-    if ($host = "{{ nginx_server_name }}") {
-        return 301 https://$host$request_uri;
+    listen 80;
+    server_name {{ nginx_server_name }}{% if nginx_bind_http_to_inventory_ip | default(false) and ansible_host | default('') | length > 0 %} {{ ansible_host }}{% endif %};
+    client_max_body_size 10M;
+
+    location /.well-known/acme-challenge/ {
+        root {{ nginx_certbot_webroot | default('/var/www/certbot') }};
     }
 
-    listen 80;
-    server_name {{ nginx_server_name }};
-    return 404;
+{% if nginx_le_cert_present | default(false) %}
+    location / {
+        return 301 https://$host$request_uri;
+    }
+{% else %}
+{{ salome_app_locations() }}
+{% endif %}
 }

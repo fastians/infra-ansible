@@ -5,6 +5,22 @@
   roles:
     - nginx
   tasks:
+    - name: Ensure Salome app user exists
+      user:
+        name: mateen_fastians
+        shell: /bin/bash
+        create_home: yes
+      become: yes
+
+    - name: Ensure Salome user home is owned by app user
+      file:
+        path: /home/mateen_fastians
+        state: directory
+        owner: mateen_fastians
+        group: mateen_fastians
+        mode: "0750"
+      become: yes
+
     # Ensure opt exists so deploy.sh and app dirs live here; avoid clone wiping parent
     - name: Ensure Salome opt directory exists
       file:
@@ -55,7 +71,7 @@
 
     - name: Deploy salomeserver.service
       template:
-        src: playbooks/templates/salomeserver.service.j2
+        src: "{{ playbook_dir }}/templates/salomeserver.service.j2"
         dest: /etc/systemd/system/salomeserver.service
         mode: "0644"
       vars:

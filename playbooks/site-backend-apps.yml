@@ -23,6 +23,20 @@
   roles:
     - nginx
   tasks:
+    - name: Ensure software-properties-common is installed (provides add-apt-repository)
+      apt:
+        name: software-properties-common
+        state: present
+        update_cache: yes
+      when: backend_install_freecad | default(false)
+
+    - name: Add FreeCAD stable PPA (provides freecad-python3 on Ubuntu Noble)
+      apt_repository:
+        repo: "ppa:freecad-maintainers/freecad-stable"
+        state: present
+        update_cache: yes
+      when: backend_install_freecad | default(false)
+
     - name: Install FreeCAD Python bindings (GEO / defeaturing)
       apt:
         name: freecad-python3

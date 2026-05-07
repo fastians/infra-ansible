@@ -101,7 +101,6 @@
 - name: Issue TLS certificate via Certbot webroot (optional, backend API template only)
   include_tasks: certbot-webroot.yml
   when:
-    - nginx_certbot_auto | default(false)
+    - nginx_certbot_auto | default(false) | bool
     - (certbot_admin_email | default('') | length) > 0
     - not nginx_le_cert_stat.stat.exists
-    - nginx_template == 'backend-nginx.conf.j2'
