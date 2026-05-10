@@ -148,14 +148,25 @@
     creates: "{{ app_base_dir }}/{{ app_name }}/.venv/bin/python"
   become: yes
   become_user: "{{ app_user }}"
+  when: not (app_use_conda | default(false))
 
-- name: Install Python dependencies
+- name: Install Python dependencies (venv)
   pip:
     requirements: "{{ app_base_dir }}/{{ app_name }}/{{ app_requirements_path }}"
     virtualenv: "{{ app_base_dir }}/{{ app_name }}/.venv"
     virtualenv_command: "python{{ app_python_version }} -m venv"
   become: yes
   become_user: "{{ app_user }}"
+  when: not (app_use_conda | default(false))
+
+- name: Install Python dependencies (conda env)
+  shell: >
+    "{{ app_conda_dir }}/envs/{{ app_conda_env_name }}/bin/pip"
+    install -r "{{ app_base_dir }}/{{ app_name }}/{{ app_requirements_path }}"
+    --quiet --no-input
+  become: yes
+  become_user: "{{ app_user }}"
+  when: app_use_conda | default(false)
 
 - name: Create environment file
   template:

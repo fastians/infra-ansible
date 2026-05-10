@@ -1,0 +1,50 @@
+---
+- name: Check if Miniconda is already installed
+  stat:
+    path: "{{ conda_install_dir }}/bin/conda"
+  register: conda_bin
+  become: yes
+  become_user: "{{ conda_user }}"
+
+- name: Download Miniconda installer
+  get_url:
+    url: "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+    dest: "/tmp/miniconda_installer.sh"
+    mode: '0755'
+    timeout: 120
+  when: not conda_bin.stat.exists
+
+- name: Install Miniconda (silent, no PATH modifications)
+  shell: bash /tmp/miniconda_installer.sh -b -p "{{ conda_install_dir }}"
+  args:
+    creates: "{{ conda_install_dir }}/bin/conda"
+  become: yes
+  become_user: "{{ conda_user }}"
+  when: not conda_bin.stat.exists
+
+- name: Remove Miniconda installer
+  file:
+    path: /tmp/miniconda_installer.sh
+    state: absent
+
+- name: Check if conda environment exists
+  stat:
+    path: "{{ conda_install_dir }}/envs/{{ conda_env_name }}"
+  register: conda_env
+  become: yes
+  become_user: "{{ conda_user }}"
+
+- name: Create conda environment with FreeCAD and pythonocc-core
+  shell: >
+    "{{ conda_install_dir }}/bin/conda" create
+    -n "{{ conda_env_name }}"
+    -c conda-forge
+    python={{ conda_python_version }}
+    freecad={{ conda_freecad_version }}
+    pythonocc-core={{ conda_occ_version }}
+    -y
+  become: yes
+  become_user: "{{ conda_user }}"
+  when: not conda_env.stat.exists
+  async: 3600
+  poll: 30

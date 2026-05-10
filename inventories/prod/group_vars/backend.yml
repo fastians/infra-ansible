@@ -40,13 +40,16 @@ python_apps:
   - name: MEK_LAB_GEO
     port: 8001
     repo_url: "{{ vault_geoserver_engineering_repo_url }}"
-    branch: dev
+    branch: main
     description: "Mek-Lab GEO (public via nginx → /geo/)"
     app_base_dir: "/home/mateen_fastians/.apps"
     app_env_template: "geoserver.env.j2"
     app_systemd_name: geoserver
     app_entry_point: "main:app"
     app_python_version: "{{ geo_app_python_version }}"
+    app_use_conda: true
+    app_conda_dir: /home/mateen_fastians/miniconda3
+    app_conda_env_name: freecad_env
   - name: MEK_LAB_LLM_AGENT
     port: 8002
     repo_url: "{{ vault_meklab_llm_repo_url }}"

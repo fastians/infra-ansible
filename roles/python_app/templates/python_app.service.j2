@@ -7,9 +7,17 @@ Type=simple
 User={{ app_user }}
 Group={{ app_user }}
 WorkingDirectory={{ app_base_dir }}/{{ app_name }}
+{% if app_use_conda | default(false) %}
+Environment="PATH={{ app_conda_dir }}/envs/{{ app_conda_env_name }}/bin:{{ app_conda_dir }}/condabin:/usr/bin:/bin"
+{% else %}
 Environment="PATH={{ app_base_dir }}/{{ app_name }}/.venv/bin"
+{% endif %}
 EnvironmentFile={{ app_base_dir }}/{{ app_name }}/.env
+{% if app_use_conda | default(false) %}
+ExecStart=/usr/bin/env PYTHONPATH={{ app_base_dir }}/{{ app_name }} {{ app_conda_dir }}/envs/{{ app_conda_env_name }}/bin/uvicorn {{ app_entry_point }} --host {{ app_host }} --port {{ app_port }} --workers {{ app_workers }}
+{% else %}
 ExecStart=/usr/bin/env PYTHONPATH={{ app_base_dir }}/{{ app_name }} {{ app_base_dir }}/{{ app_name }}/.venv/bin/uvicorn {{ app_entry_point }} --host {{ app_host }} --port {{ app_port }} --workers {{ app_workers }}
+{% endif %}
 Restart=always
 RestartSec=10
 

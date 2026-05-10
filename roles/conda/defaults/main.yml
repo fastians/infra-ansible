@@ -1,0 +1,7 @@
+---
+conda_user: mateen_fastians
+conda_install_dir: "/home/{{ conda_user }}/miniconda3"
+conda_env_name: freecad_env
+conda_python_version: "3.12"
+conda_freecad_version: "1.0.0"
+conda_occ_version: "7.8.1.1"
