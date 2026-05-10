@@ -16,3 +16,6 @@ prometheus_instance: backend-aws
 
 # UFW rules for 80/443 (also open these ports in AWS security groups).
 backend_allow_public_web: true
+
+# Deployed trees should match GitHub; discard accidental edits on the instance (git reset --hard origin/<branch>).
+python_app_git_reset_to_origin: true

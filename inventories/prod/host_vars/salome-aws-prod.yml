@@ -1,0 +1,7 @@
+---
+# AWS Salome VM (inventory name salome-aws-prod). Shared vars live in group_vars/salome.yml.
+prometheus_instance: salome-aws
+
+# Optional overrides (uncomment to customize):
+# salome_code_aster_bin: "/explicit/path/to/dir/containing/as_run"
+# salome_code_aster_export_version: testing   # or stable if your image has stable/config.txt

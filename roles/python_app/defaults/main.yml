@@ -12,6 +12,15 @@ app_entry_point: "main:app"
 app_requirements_path: "requirements.txt"
 app_extra_dirs: []
 
+# Before git pull: remove untracked bin/*.sif under the repo (common stray Singularity image path that blocks merges).
+app_git_clean_untracked_sif: true
+
+# When true, checkout matches remote exactly (git reset --hard origin/<branch>). Use on immutable deploy hosts; loses server-local edits.
+app_git_reset_to_origin: false
+
+# When true, checkout matches remote exactly (git reset --hard origin/<branch>). Use on immutable deploy hosts; loses server-local edits.
+app_git_reset_to_origin: false
+
 # These must be provided by the caller:
 # app_name: Directory/repo name (e.g., MEK_LAB_BACKEND)
 # app_port: Port number (e.g., 8000)

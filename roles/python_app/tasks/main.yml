@@ -66,17 +66,66 @@
   async: 300
   poll: 10
 
-- name: Update repository
+- name: Drop untracked bin/*.sif so git pull can merge (images belong under salome_runtime_dir, not repo bin/)
   shell: |
-    cd {{ app_base_dir }}/{{ app_name }}
+    set -euo pipefail
+    cd "{{ app_base_dir }}/{{ app_name }}"
+    [ -d bin ] || exit 0
+    shopt -s nullglob
+    for f in bin/*.sif; do
+      [ -f "$f" ] || continue
+      git ls-files --error-unmatch "$f" >/dev/null 2>&1 && continue
+      rm -f "$f"
+    done
+  args:
+    executable: /bin/bash
+  become: yes
+  become_user: "{{ app_user }}"
+  when:
+    - repo_exists.stat.exists | default(false)
+    - not app_skip_git_sync | default(false)
+    - app_git_clean_untracked_sif | default(true)
+
+- name: Update repository (reset to match remote)
+  shell: |
+    set -euo pipefail
+    cd "{{ app_base_dir }}/{{ app_name }}"
+    old="$(git rev-parse HEAD)"
     git fetch origin
-    git checkout {{ app_branch }}
-    git pull origin {{ app_branch }}
+    git checkout "{{ app_branch }}"
+    git reset --hard "origin/{{ app_branch }}"
+    new="$(git rev-parse HEAD)"
+    if [ "$old" != "$new" ]; then echo "MEK_LAB_GIT_UPDATED=1"; fi
+  args:
+    executable: /bin/bash
   environment:
     GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
   become: yes
   become_user: "{{ app_user }}"
-  when: repo_exists.stat.exists and (not app_skip_git_sync | default(false))
+  when:
+    - repo_exists.stat.exists | default(false)
+    - not app_skip_git_sync | default(false)
+    - app_git_reset_to_origin | default(false)
+  register: git_update_reset
+  changed_when: "'MEK_LAB_GIT_UPDATED=1' in (git_update_reset.stdout | default(''))"
+
+- name: Update repository
+  shell: |
+    set -euo pipefail
+    cd "{{ app_base_dir }}/{{ app_name }}"
+    git fetch origin
+    git checkout "{{ app_branch }}"
+    git pull origin "{{ app_branch }}"
+  args:
+    executable: /bin/bash
+  environment:
+    GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
+  become: yes
+  become_user: "{{ app_user }}"
+  when:
+    - repo_exists.stat.exists | default(false)
+    - not app_skip_git_sync | default(false)
+    - not (app_git_reset_to_origin | default(false))
   register: git_update
   changed_when: "'Already up to date' not in git_update.stdout"
 
@@ -124,6 +173,19 @@
     dest: "/etc/systemd/system/{{ app_systemd_name }}.service"
   become: yes
   notify: "Restart {{ app_systemd_name }}"
+
+- name: Restart service when application source was updated
+  systemd:
+    name: "{{ app_systemd_name }}"
+    state: restarted
+    daemon_reload: yes
+  become: yes
+  when:
+    - not app_skip_git_sync | default(false)
+    - repo_exists.stat.exists | default(false)
+    - >-
+      (app_git_reset_to_origin | default(false) and (git_update_reset is defined) and (git_update_reset is changed))
+      or (not (app_git_reset_to_origin | default(false)) and (git_update is defined) and (git_update is changed))
 
 - name: Start and enable service
   systemd:

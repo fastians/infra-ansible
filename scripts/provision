@@ -27,13 +27,15 @@ Server Provisioning Tool
 Usage: ./scripts/provision <server|command> [options]
 
 Run site.yml for one server (by name):
-  monitoring-server   Monitor (brain + probe) only
-  salome-server      Salome app server only
-  backend-server     Backend app server only
+  monitoring-server     Monitor (brain + probe) only
+  salome-server           Salome app server only
+  backend-server          Legacy backend VM (non-AWS inventory name)
+  backend-aws-prod        API + GEO + LLM on AWS (use this for api.mek-lab.com AWS host)
 
 Examples:
   ./scripts/provision monitoring-server
   ./scripts/provision salome-server -vv
+  ./scripts/provision backend-aws-prod
   ./scripts/provision backend-server
 
 Other commands:
@@ -78,6 +80,12 @@ case "${1:-}" in
         run_playbook "$SITE_PLAYBOOK" --limit backend-server "$@"
         ;;
 
+    backend-aws-prod)
+        shift
+        echo "▶ Running site.yml for backend-aws-prod only"
+        run_playbook "$SITE_PLAYBOOK" --limit backend-aws-prod "$@"
+        ;;
+
     monitor)
         shift
         echo "🚀 Provisioning Monitor Server (brain + probe)..."
@@ -110,7 +118,7 @@ case "${1:-}" in
 
     check)
         if [ -z "${2:-}" ]; then
-            echo "❌ Error: Please specify server (monitoring-server, backend-server, salome-server)"
+            echo "❌ Error: Please specify server (monitoring-server, backend-server, backend-aws-prod, salome-server, …)"
             exit 1
         fi
         SERVER="$2"
@@ -126,7 +134,7 @@ case "${1:-}" in
     *)
         echo "❌ Unknown: '$1'"
         echo ""
-        echo "Use a server name: monitoring-server, salome-server, backend-server"
+        echo "Use a server name: monitoring-server, salome-server, backend-server, backend-aws-prod"
         echo "Or: ./scripts/provision help"
         exit 1
         ;;

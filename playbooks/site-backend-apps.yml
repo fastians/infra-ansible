@@ -2,6 +2,14 @@
 - name: Backend Server (apps only)
   hosts: backend
   become: yes
+  vars:
+    # Optional: ansible-playbook -e deploy_filter_systemd=backendserver [-e deploy_branch_override=main]
+    _python_apps_target: >-
+      {{
+        python_apps
+        if (deploy_filter_systemd | default('') == '')
+        else (python_apps | selectattr('app_systemd_name', 'equalto', deploy_filter_systemd) | list)
+      }}
   pre_tasks:
     - name: Validate backend secret configuration before deployment
       assert:
@@ -20,6 +28,16 @@
           Backend secrets are missing or invalid. Set real values via
           inventories/prod/group_vars/all/secrets.local.yml (preferred) or
           VAULT_* environment variables before running this playbook.
+
+    - name: Validate deploy_filter_systemd matches an app
+      assert:
+        that:
+          - _python_apps_target | length > 0
+        fail_msg: >-
+          deploy_filter_systemd '{{ deploy_filter_systemd }}' did not match any python_apps entry.
+          Use app_systemd_name values from group_vars/backend.yml (e.g. backendserver, geoserver, llmserver).
+      when: deploy_filter_systemd | default('') != ''
+
   roles:
     - nginx
   tasks:
@@ -51,7 +69,7 @@
         app_name: "{{ item.name }}"
         app_port: "{{ item.port }}"
         app_repo_url: "{{ item.repo_url }}"
-        app_branch: "{{ item.branch }}"
+        app_branch: "{{ deploy_branch_override | default(item.branch) }}"
         app_description: "{{ item.description }}"
         app_base_dir: "{{ item.app_base_dir | default(omit) }}"
         app_env_template: "{{ item.app_env_template | default(omit) }}"
@@ -60,4 +78,5 @@
         app_entry_point: "{{ item.app_entry_point | default(omit) }}"
         app_extra_dirs: "{{ item.app_extra_dirs | default([]) }}"
         app_python_version: "{{ item.app_python_version | default(backend_app_python_version | default('3.12')) }}"
-      loop: "{{ python_apps }}"
+        app_git_reset_to_origin: "{{ item.app_git_reset_to_origin | default(python_app_git_reset_to_origin | default(false)) }}"
+      loop: "{{ _python_apps_target }}"

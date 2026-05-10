@@ -18,7 +18,7 @@
         state: directory
         owner: mateen_fastians
         group: mateen_fastians
-        mode: "0750"
+        mode: "{{ salome_app_home_mode | default('0755') }}"
       become: yes
 
     # Ensure opt exists so deploy.sh and app dirs live here; avoid clone wiping parent
@@ -54,6 +54,275 @@
       apt:
         name: psmisc
         state: present
+      become: yes
+
+    - name: Install Salome runtime prerequisites
+      apt:
+        name:
+          - curl
+          - singularity-container
+        state: present
+      become: yes
+
+    - name: Ensure Salome runtime directory exists
+      file:
+        path: "{{ salome_runtime_dir }}"
+        state: directory
+        owner: mateen_fastians
+        group: mateen_fastians
+        mode: "0755"
+      become: yes
+
+    - name: Install Salome launcher binary from repository script
+      copy:
+        src: "{{ python_apps[0].app_base_dir }}/{{ python_apps[0].name }}/remote_salome"
+        remote_src: yes
+        dest: "{{ salome_runtime_dir }}/{{ salome_runtime_bin_name }}"
+        owner: mateen_fastians
+        group: mateen_fastians
+        mode: "0755"
+      become: yes
+
+    - name: Download Salome runtime image (SIF)
+      get_url:
+        url: "{{ salome_runtime_sif_url }}"
+        dest: "{{ salome_runtime_dir }}/{{ salome_runtime_bin_name }}.sif"
+        owner: mateen_fastians
+        group: mateen_fastians
+        mode: "0644"
+      become: yes
+
+    - name: Create legacy Salome symlink path
+      file:
+        src: "{{ salome_runtime_dir }}/{{ salome_runtime_bin_name }}"
+        dest: "{{ salome_runtime_symlink }}"
+        state: link
+        owner: mateen_fastians
+        group: mateen_fastians
+        force: yes
+      become: yes
+
+    # Native `as_run` is usually absent when only the Singularity SIF is installed; solver bundles still invoke `as_run`.
+    - name: Ensure Code_Aster wrapper directory exists
+      ansible.builtin.file:
+        path: "{{ salome_runtime_dir }}/code_aster_wrappers/bin"
+        state: directory
+        owner: "{{ salome_app_user }}"
+        group: "{{ salome_app_user }}"
+        mode: "0755"
+      when: salome_deploy_code_aster_wrapper | default(true)
+
+    # as_run resolves P version → <asrun-root>/<profile>/config.txt. The Python asrun package lives under
+    # /opt/public/.../asrun-* but real Code_Aster data is under /opt/salome_meca/.../Code_aster_{testing,stable}-*/share/aster.
+    - name: Discover Code_Aster paths inside SIF (asrun root + matching Code_aster share/aster)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        SIF="{{ salome_runtime_dir }}/{{ salome_runtime_bin_name }}.sif"
+        SING="$(command -v singularity || command -v apptainer)"
+        [ -n "${SING}" ]
+        "${SING}" exec "$SIF" env PROFILE="{{ salome_code_aster_export_version | default('testing') }}" MANUAL_SHARE="{{ salome_code_aster_share_aster_path | default('') }}" bash -lc '
+          set -euo pipefail
+          shopt -s nullglob
+          asrun=""
+          for d in /opt/public/*/gcc-openblas-ompi/asrun-*; do
+            if find "$d/lib" -maxdepth 4 -path "*/site-packages/asrun" -type d 2>/dev/null | grep -q .; then
+              asrun="$d"
+              break
+            fi
+          done
+          [ -n "$asrun" ] || exit 2
+          share=""
+          if [ -n "${MANUAL_SHARE}" ]; then
+            share="${MANUAL_SHARE}"
+            [ -f "$share/config.txt" ] || exit 3
+          else
+            if [ "$PROFILE" = "stable" ]; then g="Code_aster_stable-*"; else g="Code_aster_testing-*"; fi
+            for d in /opt/salome_meca/*/tools/${g}/share/aster; do
+              [ -f "$d/config.txt" ] || continue
+              share="$d"
+              break
+            done
+            [ -n "$share" ] || exit 3
+          fi
+          printf "%s\n%s\n" "$asrun" "$share"
+        '
+      args:
+        executable: /bin/bash
+      register: salome_sif_code_aster_paths
+      changed_when: false
+      become: yes
+      become_user: "{{ salome_app_user }}"
+      when: salome_deploy_code_aster_wrapper | default(true)
+
+    - name: Resolve Code_Aster asrun root and share/aster path inside image
+      ansible.builtin.set_fact:
+        salome_code_aster_version_dir_in_image_effective: >-
+          {{
+            (salome_code_aster_version_dir_in_image | default('') | trim)
+            if (salome_code_aster_version_dir_in_image | default('') | trim | length) > 0
+            else (salome_sif_code_aster_paths.stdout_lines[0] | default('') | trim)
+          }}
+        salome_code_aster_share_aster_in_image: >-
+          {{
+            (salome_code_aster_share_aster_path | default('') | trim)
+            if (salome_code_aster_share_aster_path | default('') | trim | length) > 0
+            else (salome_sif_code_aster_paths.stdout_lines[1] | default('') | trim)
+          }}
+      when: salome_deploy_code_aster_wrapper | default(true)
+
+    - name: Fail when Code_Aster paths inside SIF could not be resolved
+      ansible.builtin.fail:
+        msg: >-
+          Could not discover asrun root under /opt/public/*/gcc-openblas-ompi/asrun-* or Code_aster share/aster
+          for profile {{ salome_code_aster_export_version | default('testing') }} under /opt/salome_meca/*/tools/.
+          Set salome_code_aster_version_dir_in_image / salome_code_aster_share_aster_path or salome_code_aster_export_version (testing vs stable).
+      when:
+        - salome_deploy_code_aster_wrapper | default(true)
+        - (salome_code_aster_version_dir_in_image_effective | default('') | trim | length) == 0
+          or (salome_code_aster_share_aster_in_image | default('') | trim | length) == 0
+
+    - name: Ensure Code_Aster export profile overlay root exists
+      ansible.builtin.file:
+        path: "{{ salome_code_aster_export_overlay }}"
+        state: directory
+        owner: "{{ salome_app_user }}"
+        group: "{{ salome_app_user }}"
+        mode: "0755"
+      when: salome_deploy_code_aster_wrapper | default(true)
+
+    - name: Ensure Code_Aster export profile overlay directory exists
+      ansible.builtin.file:
+        path: "{{ salome_code_aster_export_overlay }}/{{ salome_code_aster_export_version | default('testing') }}"
+        state: directory
+        owner: "{{ salome_app_user }}"
+        group: "{{ salome_app_user }}"
+        mode: "0755"
+      when: salome_deploy_code_aster_wrapper | default(true)
+
+    - name: Stage Code_Aster version overlay (full share/aster tree for bind-mount)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        SIF="{{ salome_runtime_dir }}/{{ salome_runtime_bin_name }}.sif"
+        SING="$(command -v singularity || command -v apptainer)"
+        SHARE="{{ salome_code_aster_share_aster_in_image }}"
+        DEST="{{ salome_code_aster_export_overlay }}/{{ salome_code_aster_export_version | default('testing') }}"
+        rm -rf "${DEST}"
+        mkdir -p "${DEST}"
+        "${SING}" exec "$SIF" bash -lc "cd \"${SHARE}\" && tar cf - ." | ( cd "${DEST}" && tar xf - )
+        chmod -R a+rX "${DEST}"
+      args:
+        executable: /bin/bash
+      register: salome_stage_export_profile
+      changed_when: true
+      become: yes
+      become_user: "{{ salome_app_user }}"
+      when: salome_deploy_code_aster_wrapper | default(true)
+
+    - name: Deploy host as_run wrapper (Singularity exec into SALOME-MECA image)
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/templates/salome_code_aster_as_run_wrapper.sh.j2"
+        dest: "{{ salome_runtime_dir }}/code_aster_wrappers/bin/as_run"
+        owner: "{{ salome_app_user }}"
+        group: "{{ salome_app_user }}"
+        mode: "0755"
+      when: salome_deploy_code_aster_wrapper | default(true)
+
+    # CODE_ASTER_BIN must point at the directory containing `as_run` (POST /solving).
+    # Inventory may set salome_code_aster_bin; otherwise search under runtime dir and /opt (includes wrapper above).
+    - name: Discover Code_Aster as_run directory on host
+      shell: |
+        set -euo pipefail
+        for root in "{{ salome_runtime_dir }}" "/opt/salome_meca" "/opt" "/usr/local"; do
+          [ -d "$root" ] || continue
+          found=$(find "$root" -name as_run -type f 2>/dev/null | head -1)
+          if [ -n "${found:-}" ]; then
+            dirname "$found"
+            exit 0
+          fi
+        done
+        exit 0
+      args:
+        executable: /bin/bash
+      register: salome_discovered_as_run
+      changed_when: false
+      failed_when: false
+      become: yes
+      become_user: "{{ salome_app_user }}"
+
+    - name: Resolve CODE_ASTER_BIN for salomeserver app/.env
+      ansible.builtin.set_fact:
+        salome_code_aster_bin_resolved: >-
+          {{
+            (salome_code_aster_bin | default('') | trim)
+            if (salome_code_aster_bin | default('') | trim | length) > 0
+            else (salome_discovered_as_run.stdout | default('') | trim)
+          }}
+
+    - name: Report CODE_ASTER_BIN (warn if solving will miss as_run)
+      ansible.builtin.debug:
+        msg: >-
+          CODE_ASTER_BIN={{ salome_code_aster_bin_resolved | default('') }} (empty: POST /solving cannot find as_run on PATH).
+          Set salome_code_aster_bin in inventory to the directory containing `as_run`, or install Code_Aster/SALOME-MECA on the host.
+      when: (salome_code_aster_bin_resolved | default('') | length) == 0
+
+    # Salome: .env in app/ so the app finds it; unit loads app/.env
+    - name: Deploy Salome app/.env
+      template:
+        src: "{{ playbook_dir }}/../roles/python_app/templates/env/salomeserver.env.j2"
+        dest: "{{ python_apps[0].app_base_dir }}/{{ python_apps[0].name }}/app/.env"
+        owner: mateen_fastians
+        group: mateen_fastians
+        mode: "0600"
+      vars:
+        app_user: mateen_fastians
+        app_base_dir: "{{ python_apps[0].app_base_dir }}"
+        app_name: "{{ python_apps[0].name }}"
+        salome_code_aster_bin: "{{ salome_code_aster_bin_resolved }}"
+
+    # python_app role already wrote repo-root .env earlier without discovery; align with app/.env
+    - name: Update Salome repo-root .env (parity with app/.env)
+      template:
+        src: "{{ playbook_dir }}/../roles/python_app/templates/env/salomeserver.env.j2"
+        dest: "{{ python_apps[0].app_base_dir }}/{{ python_apps[0].name }}/.env"
+        owner: mateen_fastians
+        group: mateen_fastians
+        mode: "0600"
+      vars:
+        app_user: mateen_fastians
+        app_base_dir: "{{ python_apps[0].app_base_dir }}"
+        app_name: "{{ python_apps[0].name }}"
+        salome_code_aster_bin: "{{ salome_code_aster_bin_resolved }}"
+
+        group: mateen_fastians
+        mode: "0755"
+      become: yes
+
+    - name: Download Salome launcher binary (old server compatible)
+      get_url:
+        url: "{{ salome_runtime_bin_url }}"
+        dest: "{{ salome_runtime_dir }}/{{ salome_runtime_bin_name }}"
+        owner: mateen_fastians
+        group: mateen_fastians
+        mode: "0755"
+      become: yes
+
+    - name: Download Salome runtime image (SIF)
+      get_url:
+        url: "{{ salome_runtime_sif_url }}"
+        dest: "{{ salome_runtime_dir }}/{{ salome_runtime_bin_name }}.sif"
+        owner: mateen_fastians
+        group: mateen_fastians
+        mode: "0644"
+      become: yes
+
+    - name: Create legacy Salome symlink path
+      file:
+        src: "{{ salome_runtime_dir }}/{{ salome_runtime_bin_name }}"
+        dest: "{{ salome_runtime_symlink }}"
+        state: link
+        owner: mateen_fastians
+        group: mateen_fastians
+        force: yes
       become: yes
 
     # Salome: .env in app/ so the app finds it; unit loads app/.env

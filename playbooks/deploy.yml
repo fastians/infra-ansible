@@ -13,7 +13,12 @@
       geoserver: "/home/mateen_fastians/.deploy/geoserver.sh"
       llmserver: "/home/mateen_fastians/.deploy/llmserver.sh"
       salomeserver: "/home/mateen_fastians/opt/deploy.sh"
-  
+    service_health_port:
+      backendserver: 8000
+      geoserver: 8001
+      llmserver: 8002
+      salomeserver: 8000
+
   tasks:
     - name: Validate service name
       assert:
@@ -49,17 +54,24 @@
           Fix: ensure the service exists (run site.yml --limit <host>) and sync scripts (playbooks/sync-scripts.yml), then retry.
       when: deploy_output.rc != 0
 
-    - name: Show deployment output
-      debug:
-        msg: "{{ deploy_output.stdout_lines }}"
-      when: deploy_output.rc == 0
-
-    - name: Verify service is running
+    # Deploy scripts run as mateen_fastians; many hosts have no passwordless sudo for that user.
+    # Restart as root here, then probe /health on the target (127.0.0.1 = the app host).
+    - name: Restart {{ unit_name }} after code update
       systemd:
         name: "{{ unit_name }}.service"
-        state: started
+        state: restarted
+        daemon_reload: true
       become: yes
       register: service_status
+      when: deploy_output.rc == 0
+
+    - name: Wait for /health on localhost
+      ansible.builtin.shell: "curl -sf --max-time 3 http://127.0.0.1:{{ service_health_port[service] }}/health"
+      register: health_check
+      retries: 15
+      delay: 2
+      until: health_check.rc == 0
+      changed_when: false
       when: deploy_output.rc == 0
 
     - name: Deployment summary

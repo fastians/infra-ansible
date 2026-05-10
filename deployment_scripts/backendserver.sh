@@ -28,12 +28,7 @@ echo "[DEPLOY] Running database migrations..."
 echo "[DEPLOY] Current commit: $(git rev-parse HEAD)"
 echo "[DEPLOY] Commit message: $(git log -1 --pretty=%B)"
 
-sudo systemctl restart "$SERVICE_UNIT"
-
-echo "[DEPLOY] Verifying service at http://127.0.0.1:${PORT}/health..."
-for i in {1..10}; do
-  curl -sf "http://127.0.0.1:${PORT}/health" && break
-  sleep 1
-done
+# systemd restart runs as root in playbooks/deploy.yml (deploy user often has no passwordless sudo).
+echo "[DEPLOY] Systemd restart + health check: Ansible (root)."
 
 echo "[DEPLOY OK] $SERVICE_NAME"

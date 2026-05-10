@@ -56,6 +56,7 @@
         app_repo_url: "{{ item.repo_url }}"
         app_branch: "{{ item.branch }}"
         app_description: "{{ item.description }}"
+        app_git_reset_to_origin: "{{ item.app_git_reset_to_origin | default(python_app_git_reset_to_origin | default(false)) }}"
       loop: "{{ python_apps }}"
       tags: [app]
 

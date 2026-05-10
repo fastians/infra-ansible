@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Run from infra_ansible/ — delegates to repo-root scripts/deployaws
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+exec "${ROOT}/scripts/deployaws" "$@"

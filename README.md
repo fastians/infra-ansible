@@ -137,3 +137,41 @@ Grafana includes an **SLO overview** dashboard (7d availability, error-budget vi
 *For AI/automation context (structure, commands, service names), see [CLAUDE.md](CLAUDE.md). For operations and architecture, see `docs/`.*
 
 Legacy `claude.md` remains as a pointer for compatibility; use `CLAUDE.md` as canonical.
+
+## Salome solver runbook (quick lessons)
+
+For `POST /solving` incidents on `salome-aws-prod`, the most common pitfalls are:
+
+- `.../asrun-*/testing/config.txt` missing: requires profile overlay bind mount (already automated by `site-salome-apps.yml`).
+- `ImportError: libdmumps.so`: runtime library paths not loaded in non-interactive singularity execution.
+- `ModuleNotFoundError: medcoupling`: MEDCoupling Python modules missing from `PYTHONPATH`.
+
+Always run these smoke checks after Salome deploy:
+
+```bash
+# health endpoint (expect 200 + {"status":"ok"})
+ansible -i inventories/prod/hosts.ini salome-aws-prod -m shell \
+  -a 'curl -sS -o /tmp/health.out -w "%{http_code}\n" http://127.0.0.1:8000/health && cat /tmp/health.out' -b
+
+# Code_Aster minimal check + MED read check
+# (full command set documented in CLAUDE.md -> "Required Salome Smoke Tests")
+```
+
+## Salome solver runbook (quick lessons)
+
+For `POST /solving` incidents on `salome-aws-prod`, the most common pitfalls are:
+
+- `.../asrun-*/testing/config.txt` missing: requires profile overlay bind mount (already automated by `site-salome-apps.yml`).
+- `ImportError: libdmumps.so`: runtime library paths not loaded in non-interactive singularity execution.
+- `ModuleNotFoundError: medcoupling`: MEDCoupling Python modules missing from `PYTHONPATH`.
+
+Always run these smoke checks after Salome deploy:
+
+```bash
+# health endpoint (expect 200 + {"status":"ok"})
+ansible -i inventories/prod/hosts.ini salome-aws-prod -m shell \
+  -a 'curl -sS -o /tmp/health.out -w "%{http_code}\n" http://127.0.0.1:8000/health && cat /tmp/health.out' -b
+
+# Code_Aster minimal check + MED read check
+# (full command set documented in CLAUDE.md -> "Required Salome Smoke Tests")
+```

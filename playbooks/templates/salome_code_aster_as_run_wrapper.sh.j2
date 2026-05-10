@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Deployed by Ansible (site-salome-apps.yml). Invokes Code_Aster `as_run` inside the SALOME-MECA SIF
+# so POST /solving works when no native `as_run` exists on the host filesystem.
+set -euo pipefail
+
+SIF="{{ salome_runtime_dir }}/{{ salome_runtime_bin_name }}.sif"
+if [[ ! -f "$SIF" ]]; then
+  echo "[ERROR] Singularity image not found: $SIF" >&2
+  exit 127
+fi
+
+SING="$(command -v singularity || command -v apptainer || true)"
+if [[ -z "${SING}" ]]; then
+  echo "[ERROR] Neither singularity nor apptainer found in PATH (install singularity-container / apptainer)" >&2
+  exit 127
+fi
+
+# LGPL images often omit <asrun-root>/<P version>/config.txt; overlay supplies it (see site-salome-apps.yml).
+OVERLAY="{{ salome_code_aster_export_overlay }}/{{ salome_code_aster_export_version | default('testing') }}"
+INIMG="{{ salome_code_aster_version_dir_in_image_effective }}/{{ salome_code_aster_export_version | default('testing') }}"
+PROFILE_BIND=()
+if [[ -f "${OVERLAY}/config.txt" ]] && [[ -n "{{ salome_code_aster_version_dir_in_image_effective | default('') }}" ]]; then
+  PROFILE_BIND=( -B "${OVERLAY}:${INIMG}" )
+fi
+
+# Bind app tree so job cwd paths under MEK_LAB_SALOME/jobs match inside the container.
+exec "${SING}" exec \
+  "${PROFILE_BIND[@]}" \
+  -B "/home/{{ salome_app_user }}:/home/{{ salome_app_user }}" \
+  -B "/tmp:/tmp" \
+  "$SIF" bash -lc '
+set -euo pipefail
+ASTER_SHARE="{{ salome_code_aster_share_aster_in_image }}"
+if [[ -n "${ASTER_SHARE}" ]] && [[ -f "${ASTER_SHARE}/profile.sh" ]]; then
+  # Code_Aster profile exports compiler/runtime library paths (libdmumps, mumps, etc.).
+  # as_run does not guarantee sourcing this before executing fort.1 in this container layout.
+  export RUNASTER_ROOT="$(dirname "$(dirname "${ASTER_SHARE}")")"
+  set +u
+  source "${ASTER_SHARE}/profile.sh"
+  set -u
+fi
+# Some SALOME-MECA layouts need explicit MUMPS/BLAS runtime dirs for libaster import.
+for cand in /opt/public/*/gcc-openblas-ompi/*/lib /opt/salome_meca/*/prerequisites/*/SEQ/lib /opt/salome_meca/*/prerequisites/*/lib; do
+  [[ -d "${cand}" ]] || continue
+  export LD_LIBRARY_PATH="${cand}:${LD_LIBRARY_PATH-}"
+done
+# MED mesh readers need MEDCoupling Python modules (medcoupling/MEDLoader) that are not
+# on sys.path in minimal singularity exec context.
+for pyp in /opt/salome_meca/*/prerequisites/*/BINARIES-DB11/MEDCOUPLING/lib/python*/site-packages; do
+  [[ -d "${pyp}" ]] || continue
+  export PYTHONPATH="${pyp}:${PYTHONPATH-}"
+done
+for medlib in /opt/salome_meca/*/prerequisites/*/BINARIES-DB11/MEDCOUPLING/lib; do
+  [[ -d "${medlib}" ]] || continue
+  export LD_LIBRARY_PATH="${medlib}:${LD_LIBRARY_PATH-}"
+done
+exec as_run "$@"
+' _ "$@"

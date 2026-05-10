@@ -12,6 +12,9 @@ backend_app_python_version: "3.12"
 # Install FreeCAD libs on backend (no-op if already present). Required for MEK_LAB_GEO / geoserver.
 backend_install_freecad: true
 
+# Per-app override: item.app_git_reset_to_origin. Host override: python_app_git_reset_to_origin in host_vars.
+python_app_git_reset_to_origin: false
+
 # Listen on all interfaces so Prometheus (on monitor) can scrape /metrics
 app_host: "0.0.0.0"
 
@@ -37,7 +40,7 @@ python_apps:
   - name: MEK_LAB_GEO
     port: 8001
     repo_url: "{{ vault_geoserver_engineering_repo_url }}"
-    branch: main
+    branch: dev
     description: "Mek-Lab GEO (public via nginx → /geo/)"
     app_base_dir: "/home/mateen_fastians/.apps"
     app_env_template: "geoserver.env.j2"

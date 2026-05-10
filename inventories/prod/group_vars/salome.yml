@@ -1,6 +1,29 @@
 # Mek-Lab Salome host: one VM, one unit salomeserver (see site_constants.yml naming).
 promtail_config_template: "promtail-config.yml.j2"
 
+# Linux account that owns MEK_LAB_SALOME and salome_runtime_dir (used in Singularity bind mounts).
+salome_app_user: mateen_fastians
+
+# "0755" on /home/<app user>: any local account (e.g. ubuntu) can reach opt/ and the SIF; app .env stays 0600.
+salome_app_home_mode: "0755"
+
+# Install {{ salome_runtime_dir }}/code_aster_wrappers/bin/as_run → singularity exec …/image.sif as_run
+# Set false only if you install native Code_Aster on the host and set salome_code_aster_bin yourself.
+salome_deploy_code_aster_wrapper: true
+
+# Passed to MEK_LAB_SALOME app/.env — must match overlay subdir bind-mounted for as_run (see site-salome-apps.yml).
+salome_code_aster_export_version: testing
+
+# Host staging: full share/aster tree from the matching Code_aster_* install is copied here and bind-mounted as
+# <asrun-root>/<export_version>/ so as_run finds config.txt (see site-salome-apps.yml).
+salome_code_aster_export_overlay: "{{ salome_runtime_dir }}/code_aster_export_profile"
+
+# Path *inside the SIF* to the asrun-* root (parent of lib/python*/site-packages/asrun). Empty = discover at deploy.
+salome_code_aster_version_dir_in_image: ""
+
+# Optional explicit .../Code_aster_*/share/aster path inside the SIF if discovery fails on a future image layout.
+salome_code_aster_share_aster_path: ""
+
 # Listen on all interfaces so Prometheus (on monitor) can scrape /metrics
 app_host: "0.0.0.0"
 
@@ -29,3 +52,16 @@ python_apps:
       - "job_scripts"
       - "job_outputs"
       - "bundles"
+
+# Directory containing Code_Aster `as_run` (required for POST /solving). Leave empty to let
+# playbooks/site-salome-apps.yml discover it (find under salome_runtime_dir, /opt/salome_meca, /opt).
+# If `as_run` only exists inside a Singularity image, discovery finds nothing — set this explicitly
+# in host_vars (path to a host bin dir, or a dir of wrapper scripts). Example:
+# salome_code_aster_bin: "/home/mateen_fastians/opt/salome_meca/.../Code_Aster_xxx/bin"
+salome_code_aster_bin: ""
+
+# Salome runtime migration settings (match old server layout)
+salome_runtime_dir: "/home/mateen_fastians/opt/salome_meca"
+salome_runtime_bin_name: "salome_meca-lgpl-2024.1.0-1-20240327-scibian-11"
+salome_runtime_sif_url: "https://code-aster.org/FICHIERS/singularity/salome_meca-lgpl-2024.1.0-1-20240327-scibian-11.sif"
+salome_runtime_symlink: "/home/mateen_fastians/salome"

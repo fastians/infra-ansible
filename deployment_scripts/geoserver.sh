@@ -22,11 +22,6 @@ fi
 # Use venv pip explicitly (avoids PEP 668 externally-managed-environment)
 timeout 300 .venv/bin/pip install -r requirements.txt --no-input --quiet
 
-sudo systemctl restart "$SERVICE_UNIT"
-
-for i in {1..10}; do
-  curl -sf "http://127.0.0.1:${PORT}/health" && break
-  sleep 1
-done
+echo "[DEPLOY] Systemd restart + health check: Ansible (root)."
 
 echo "[DEPLOY OK] $SERVICE_NAME"
