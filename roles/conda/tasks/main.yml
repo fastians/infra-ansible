@@ -27,6 +27,19 @@
     path: /tmp/miniconda_installer.sh
     state: absent
 
+- name: Configure conda to use only conda-forge (removes Anaconda default channels that require TOS)
+  copy:
+    dest: "/home/{{ conda_user }}/.condarc"
+    content: |
+      channels:
+        - conda-forge
+      default_channels: []
+      channel_priority: strict
+    owner: "{{ conda_user }}"
+    group: "{{ conda_user }}"
+    mode: '0644'
+  become: yes
+
 - name: Check if conda environment exists
   stat:
     path: "{{ conda_install_dir }}/envs/{{ conda_env_name }}"
