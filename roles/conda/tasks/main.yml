@@ -53,6 +53,7 @@
     -n "{{ conda_env_name }}"
     -c conda-forge
     python={{ conda_python_version }}
+    pip
     freecad={{ conda_freecad_version }}
     pythonocc-core={{ conda_occ_version }}
     -y
@@ -61,3 +62,12 @@
   when: not conda_env.stat.exists
   async: 3600
   poll: 30
+
+- name: Ensure pip is installed in the conda environment
+  shell: >
+    "{{ conda_install_dir }}/bin/conda" install
+    -n "{{ conda_env_name }}"
+    -c conda-forge
+    pip -y
+  become: yes
+  become_user: "{{ conda_user }}"
