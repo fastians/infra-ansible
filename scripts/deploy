@@ -1,5 +1,105 @@
-#!/usr/bin/env bash
-# Run from infra_ansible/ — delegates to repo-root scripts/deploy
+#!/bin/bash
+# Deploy application code to prod hosts.
+# Usage (from infra_ansible/): ./scripts/deploy <service> [branch] [host]
+#
+# Examples:
+#   ./scripts/deploy backendserver main
+#   ./scripts/deploy geoserver main
+#   ./scripts/deploy geoserver main backend-aws-prod
+#   DEPLOY_LIMIT=backend-aws-prod ./scripts/deploy backendserver main
+
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-exec "${ROOT}/scripts/deploy" "$@"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+INVENTORY="${ANSIBLE_INVENTORY:-${ROOT_DIR}/inventories/prod/hosts.ini}"
+PLAYBOOK="${ROOT_DIR}/playbooks/deploy.yml"
+# shellcheck source=scripts/lib/load-env.sh
+source "${ROOT_DIR}/scripts/lib/load-env.sh"
+load_env_profile "${ROOT_DIR}"
+
+SERVICE=${1:-}
+BRANCH=${2:-main}
+DEPLOY_HOST="${DEPLOY_LIMIT:-${3:-${DEFAULT_DEPLOY_HOST:-backend-aws-prod}}}"
+VALID_SERVICES=("backendserver" "geoserver" "llmserver" "salomeserver")
+SKIP_SSH_CHECK="${SKIP_SSH_CHECK:-0}"
+
+if [ -z "$SERVICE" ]; then
+    echo "Usage: ./scripts/deploy <service> [branch] [host]"
+    echo ""
+    echo "Services: backendserver, geoserver, llmserver, salomeserver"
+    echo ""
+    echo "Examples:"
+    echo "  ./scripts/deploy backendserver main"
+    echo "  ./scripts/deploy geoserver main"
+    echo "  ./scripts/deploy backendserver main backend-aws-prod"
+    echo "  DEFAULT_DEPLOY_HOST=backend-server ./scripts/deploy geoserver main"
+    echo ""
+    echo "Default host: backend-aws-prod (3.35.138.242 — api.mek-lab.com)."
+    echo "Legacy GCP:     backend-server (34.47.101.190)."
+    echo "See docs/DEPLOYMENT.md for rollback and safety."
+    exit 1
+fi
+
+if [ "$SERVICE" = "backenderver" ]; then
+    echo "⚠️  Interpreting 'backenderver' as 'backendserver'"
+    SERVICE="backendserver"
+fi
+
+is_valid_service=0
+for svc in "${VALID_SERVICES[@]}"; do
+    if [ "$SERVICE" = "$svc" ]; then
+        is_valid_service=1
+        break
+    fi
+done
+
+if [ "$is_valid_service" -ne 1 ]; then
+    echo "❌ Invalid service: $SERVICE"
+    echo "Valid values: ${VALID_SERVICES[*]}"
+    exit 1
+fi
+
+if [ "$SERVICE" = "salomeserver" ]; then
+    TARGET="${DEPLOY_HOST:-salome-aws-prod}"
+else
+    TARGET="$DEPLOY_HOST"
+fi
+
+# Resolve ansible_host for SSH preflight
+ANSIBLE_HOST_IP="$(ansible-inventory -i "$INVENTORY" --host "$TARGET" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('ansible_host',''))" 2>/dev/null || true)"
+
+preflight_ssh() {
+    local host="$1"
+    [ -z "$host" ] && return 0
+    if python3 -c "import socket; s=socket.create_connection(('${host}', 22), 4); s.close()" 2>/dev/null; then
+        return 0
+    fi
+    echo "❌ Cannot reach SSH on ${host}:22 (${TARGET})."
+    echo "   Deploy needs SSH. The API may still work on 443 while port 22 is blocked (UFW)."
+    echo ""
+    echo "   Fix on the server (AWS Console → EC2 → Connect → EC2 Instance Connect):"
+    echo "     sudo ufw allow OpenSSH"
+    echo "     sudo ufw status"
+    echo ""
+    echo "   Then test: ssh -i ~/.ssh/id_ed25519 ubuntu@${host}"
+    echo "   Retry:     ./scripts/deploy ${SERVICE} ${BRANCH} ${TARGET}"
+    echo ""
+    echo "   To skip this check: SKIP_SSH_CHECK=1 ./scripts/deploy ..."
+    exit 1
+}
+
+if [ "$SKIP_SSH_CHECK" != "1" ] && [ -n "$ANSIBLE_HOST_IP" ]; then
+    preflight_ssh "$ANSIBLE_HOST_IP"
+fi
+
+echo "🚀 Deploying $SERVICE from branch $BRANCH..."
+echo "   Inventory: $INVENTORY"
+echo "   Host:      $TARGET (${ANSIBLE_HOST_IP:-unknown IP})"
+
+ANSIBLE_ARGS=(-i "$INVENTORY" "$PLAYBOOK" -e "service=$SERVICE" -e "branch=$BRANCH" -e "target=$TARGET")
+if [ -n "$DEPLOY_HOST" ]; then
+    ANSIBLE_ARGS+=(--limit "$TARGET")
+fi
+
+ansible-playbook "${ANSIBLE_ARGS[@]}"

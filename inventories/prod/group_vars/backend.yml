@@ -45,6 +45,7 @@ python_apps:
     app_base_dir: "/home/mateen_fastians/.apps"
     app_env_template: "geoserver.env.j2"
     app_systemd_name: geoserver
+    app_requirements_path: "requirements.txt"
     app_entry_point: "main:app"
     app_python_version: "{{ geo_app_python_version }}"
     app_use_conda: true

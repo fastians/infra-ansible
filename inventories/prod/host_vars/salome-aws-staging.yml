@@ -1,0 +1,3 @@
+---
+# AWS staging Salome (Terraform: aws-app-staging). Shared vars in group_vars/salome.yml.
+prometheus_instance: salome-aws-staging

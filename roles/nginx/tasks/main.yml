@@ -98,7 +98,7 @@
 - name: Reload nginx before Certbot HTTP-01 check (serve /.well-known)
   meta: flush_handlers
 
-- name: Issue TLS certificate via Certbot webroot (optional, backend API template only)
+- name: Issue TLS certificate via Certbot webroot (optional)
   include_tasks: certbot-webroot.yml
   when:
     - nginx_certbot_auto | default(false) | bool

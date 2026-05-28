@@ -38,6 +38,22 @@
           Use app_systemd_name values from group_vars/backend.yml (e.g. backendserver, geoserver, llmserver).
       when: deploy_filter_systemd | default('') != ''
 
+    - name: Ensure application user exists
+      user:
+        name: mateen_fastians
+        shell: /bin/bash
+        create_home: yes
+      become: yes
+
+    - name: Ensure backend app base directory exists
+      file:
+        path: /home/mateen_fastians/.apps
+        state: directory
+        owner: mateen_fastians
+        group: mateen_fastians
+        mode: "0755"
+      become: yes
+
   roles:
     - nginx
   tasks:
@@ -77,6 +93,17 @@
         | selectattr('app_use_conda', 'defined')
         | selectattr('app_use_conda', 'equalto', true)
         | list | length > 0
+
+    - name: Install pip requirements into conda env (GEO / geoserver)
+      shell: >
+        runuser -u mateen_fastians -- env
+        HOME=/home/mateen_fastians
+        {{ item.app_conda_dir | default('/home/mateen_fastians/miniconda3') }}/envs/{{ item.app_conda_env_name | default('freecad_env') }}/bin/pip
+        install -r {{ item.app_base_dir | default('/home/mateen_fastians/.apps') }}/{{ item.name }}/{{ item.app_requirements_path | default('requirements.txt') }}
+      args:
+        chdir: "/home/mateen_fastians"
+      become: yes
+      loop: "{{ _python_apps_target | selectattr('app_use_conda', 'defined') | selectattr('app_use_conda', 'equalto', true) | list }}"
 
     - name: Deploy Python applications
       include_role:

@@ -6,6 +6,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# Ansible loads ansible.cfg from cwd — must run playbooks from infra_ansible root (roles_path=./roles).
+cd "${ROOT_DIR}" || exit 1
 INVENTORY="${ROOT_DIR}/inventories/prod/hosts.ini"
 SITE_PLAYBOOK="${ROOT_DIR}/site.yml"
 PLAYBOOKS_DIR="${ROOT_DIR}/playbooks"
@@ -84,6 +86,24 @@ case "${1:-}" in
         shift
         echo "▶ Running site.yml for backend-aws-prod only"
         run_playbook "$SITE_PLAYBOOK" --limit backend-aws-prod "$@"
+        ;;
+
+    backend-aws-staging)
+        shift
+        echo "▶ Running site.yml for backend-aws-staging only"
+        run_playbook "$SITE_PLAYBOOK" --limit backend-aws-staging "$@"
+        ;;
+
+    salome-aws-prod)
+        shift
+        echo "▶ Running site.yml for salome-aws-prod only"
+        run_playbook "$SITE_PLAYBOOK" --limit salome-aws-prod "$@"
+        ;;
+
+    salome-aws-staging)
+        shift
+        echo "▶ Running site.yml for salome-aws-staging only"
+        run_playbook "$SITE_PLAYBOOK" --limit salome-aws-staging "$@"
         ;;
 
     monitor)

@@ -20,7 +20,9 @@ if [ ! -d ".venv" ]; then
 fi
 
 # Use venv pip explicitly (avoids PEP 668 externally-managed-environment); repo has app/ subdir
-timeout 300 .venv/bin/pip install -r app/requirements.txt --no-input --quiet
+REQ="requirements.txt"
+[ -f app/requirements.txt ] && REQ="app/requirements.txt"
+timeout 300 .venv/bin/pip install -r "$REQ" --no-input --quiet
 
 echo "[DEPLOY] Systemd restart + health check: Ansible (root)."
 

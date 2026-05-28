@@ -1,0 +1,15 @@
+---
+# AWS staging backend (Terraform: aws-app-staging). t3.large — pre-production validation.
+app_skip_git_sync: false
+monitoring_enabled: false
+
+vault_geoserver_engineering_repo_url: "git@github.com:mek-lab/MEK_LAB_GEO.git"
+
+# Staging: bind HTTP to instance IP for smoke tests; use staging DNS when available.
+nginx_server_name: "{{ api_public_host }}"
+nginx_bind_http_to_inventory_ip: true
+nginx_certbot_auto: false
+prometheus_instance: backend-aws-staging
+
+backend_allow_public_web: true
+python_app_git_reset_to_origin: true

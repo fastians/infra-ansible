@@ -1,10 +1,11 @@
 ---
+# Use runuser instead of become_user on shell tasks (Ubuntu ACL breaks Ansible temp file chmod).
+
 - name: Check if Miniconda is already installed
   stat:
     path: "{{ conda_install_dir }}/bin/conda"
   register: conda_bin
   become: yes
-  become_user: "{{ conda_user }}"
 
 - name: Download Miniconda installer
   get_url:
@@ -15,11 +16,10 @@
   when: not conda_bin.stat.exists
 
 - name: Install Miniconda (silent, no PATH modifications)
-  shell: bash /tmp/miniconda_installer.sh -b -p "{{ conda_install_dir }}"
+  shell: runuser -u {{ conda_user }} -- bash /tmp/miniconda_installer.sh -b -p "{{ conda_install_dir }}"
   args:
     creates: "{{ conda_install_dir }}/bin/conda"
   become: yes
-  become_user: "{{ conda_user }}"
   when: not conda_bin.stat.exists
 
 - name: Remove Miniconda installer
@@ -45,11 +45,14 @@
     path: "{{ conda_install_dir }}/envs/{{ conda_env_name }}"
   register: conda_env
   become: yes
-  become_user: "{{ conda_user }}"
 
 - name: Create conda environment with FreeCAD and pythonocc-core
   shell: >
-    "{{ conda_install_dir }}/bin/conda" create
+    runuser -u {{ conda_user }} -- env
+    HOME=/home/{{ conda_user }}
+    USER={{ conda_user }}
+    LOGNAME={{ conda_user }}
+    {{ conda_install_dir }}/bin/conda create
     -n "{{ conda_env_name }}"
     -c conda-forge
     python={{ conda_python_version }}
@@ -57,17 +60,22 @@
     freecad={{ conda_freecad_version }}
     pythonocc-core={{ conda_occ_version }}
     -y
+  args:
+    chdir: "/home/{{ conda_user }}"
   become: yes
-  become_user: "{{ conda_user }}"
   when: not conda_env.stat.exists
   async: 3600
   poll: 30
 
 - name: Ensure pip is installed in the conda environment
   shell: >
-    "{{ conda_install_dir }}/bin/conda" install
+    runuser -u {{ conda_user }} -- env
+    HOME=/home/{{ conda_user }}
+    USER={{ conda_user }}
+    {{ conda_install_dir }}/bin/conda install
     -n "{{ conda_env_name }}"
     -c conda-forge
     pip -y
+  args:
+    chdir: "/home/{{ conda_user }}"
   become: yes
-  become_user: "{{ conda_user }}"

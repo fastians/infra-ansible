@@ -2,19 +2,45 @@
 
 A professional-grade infrastructure-as-code (IaC) project designed to automate the provisioning, configuration, and monitoring of high-performance lab environments. This repository serves as a showcase for modern DevOps practices, focusing on scalability, security, and observable systems.
 
+## Deployment tiers
+
+| Tier | Hosts | When to use |
+|------|-------|-------------|
+| GCP legacy | `backend-server`, `salome-server` | Original Google Cloud VMs |
+| AWS staging | `backend-aws-staging`, `salome-aws-staging` | Pre-prod (`t3.large`; Terraform `aws-app-staging`) |
+| AWS production | `backend-aws-prod`, `salome-aws-prod` | Live traffic (`m6i.2xlarge` min; Terraform `aws-app-production`) |
+
+`[backend]` and `[salome]` groups include **staging + production**. Always pass a single host name to avoid touching every tier.
+
 ## One-by-one setup (manual order)
 
-Run by server name, one at a time; test, then the next:
+Sync secrets, then provision one host at a time:
 
 ```bash
-./scripts/provision monitoring-server   # Monitor (Prometheus, Grafana, Loki, Alertmanager, Blackbox)
-./scripts/provision backend-server      # Backend: one machine, three FastAPI apps (backendserver, geoserver, llmserver)
-./scripts/provision salome-server       # Salome app server
+cd infra_ansible
+bash ./scripts/sync-env-production.sh   # builds .env.production from zz_secrets.local.yml
+
+# Monitoring (once)
+bash ./scripts/provision monitoring-server
+
+# AWS production (public DNS)
+bash ./scripts/provision backend-aws-prod
+bash ./scripts/provision salome-aws-prod
+
+# AWS staging
+bash ./scripts/provision backend-aws-staging
+bash ./scripts/provision salome-aws-staging
+
+# GCP legacy
+bash ./scripts/provision backend-server
+bash ./scripts/provision salome-server
 ```
 
-`./scripts/provision` resolves inventory and playbook paths from the repo directory, so you can run it from any working directory.
+`./scripts/provision` resolves inventory and playbook paths from the repo directory.
 
-Or use short names to run provision playbooks: `./scripts/provision monitor`, `./scripts/provision backend`, `./scripts/provision salome`. Use `./scripts/provision verify` to check all servers; `./scripts/provision help` for more.
+Short aliases: `./scripts/provision monitor`, `backend`, `salome` (map to legacy or default hosts — prefer full host names above). `./scripts/provision verify` checks servers; `./scripts/provision help` for more.
+
+After Terraform **production** apply: copy GitHub deploy key from staging to prod, install Postgres on backend, run `playbooks/seed.yml` or `./db.sh seed` — see [CLAUDE.md](CLAUDE.md).
 
 Get monitoring endpoint URLs for a host:
 
@@ -140,38 +166,10 @@ Legacy `claude.md` remains as a pointer for compatibility; use `CLAUDE.md` as ca
 
 ## Salome solver runbook (quick lessons)
 
-For `POST /solving` incidents on `salome-aws-prod`, the most common pitfalls are:
+For `POST /solving` incidents on `salome-aws-prod` (or staging), common pitfalls:
 
-- `.../asrun-*/testing/config.txt` missing: requires profile overlay bind mount (already automated by `site-salome-apps.yml`).
-- `ImportError: libdmumps.so`: runtime library paths not loaded in non-interactive singularity execution.
-- `ModuleNotFoundError: medcoupling`: MEDCoupling Python modules missing from `PYTHONPATH`.
+- `.../asrun-*/testing/config.txt` missing — profile overlay bind mount (`site-salome-apps.yml`).
+- `ImportError: libdmumps.so` — library paths in non-interactive `singularity exec`.
+- `ModuleNotFoundError: medcoupling` — MEDCoupling not on `PYTHONPATH`.
 
-Always run these smoke checks after Salome deploy:
-
-```bash
-# health endpoint (expect 200 + {"status":"ok"})
-ansible -i inventories/prod/hosts.ini salome-aws-prod -m shell \
-  -a 'curl -sS -o /tmp/health.out -w "%{http_code}\n" http://127.0.0.1:8000/health && cat /tmp/health.out' -b
-
-# Code_Aster minimal check + MED read check
-# (full command set documented in CLAUDE.md -> "Required Salome Smoke Tests")
-```
-
-## Salome solver runbook (quick lessons)
-
-For `POST /solving` incidents on `salome-aws-prod`, the most common pitfalls are:
-
-- `.../asrun-*/testing/config.txt` missing: requires profile overlay bind mount (already automated by `site-salome-apps.yml`).
-- `ImportError: libdmumps.so`: runtime library paths not loaded in non-interactive singularity execution.
-- `ModuleNotFoundError: medcoupling`: MEDCoupling Python modules missing from `PYTHONPATH`.
-
-Always run these smoke checks after Salome deploy:
-
-```bash
-# health endpoint (expect 200 + {"status":"ok"})
-ansible -i inventories/prod/hosts.ini salome-aws-prod -m shell \
-  -a 'curl -sS -o /tmp/health.out -w "%{http_code}\n" http://127.0.0.1:8000/health && cat /tmp/health.out' -b
-
-# Code_Aster minimal check + MED read check
-# (full command set documented in CLAUDE.md -> "Required Salome Smoke Tests")
-```
+Smoke tests after deploy: [CLAUDE.md](CLAUDE.md) → **Required Salome smoke tests**.

@@ -1,21 +1,17 @@
 ---
-# Default app Python is backend_app_python_version in group_vars/backend.yml (3.12). GEO uses 3.10 on Jammy (FreeCAD ABI).
+# AWS production backend (Terraform: aws-app-production). m6i.2xlarge (GEO runs on this host).
+# Avoid ACL chmod errors when become_user=mateen_fastians (Ansible 2.20+).
+ansible_remote_tmp: /tmp/ansible-remote-{{ inventory_hostname }}
 app_skip_git_sync: false
-monitoring_enabled: false
+monitoring_enabled: true
 
-# Use same repo path as current working backend server.
 vault_geoserver_engineering_repo_url: "git@github.com:mek-lab/MEK_LAB_GEO.git"
 
-# Same hostname as production; see site_constants.yml (api_public_host). Point DNS here when cutting over.
 nginx_server_name: "{{ api_public_host }}"
-# Allow http://<public IP>/docs in the browser (Host header is the IP). Port 443 still uses api hostname only (cert CN).
 nginx_bind_http_to_inventory_ip: true
 nginx_certbot_auto: true
 certbot_admin_email: "{{ contact_email }}"
-prometheus_instance: backend-aws
+prometheus_instance: backend-aws-prod
 
-# UFW rules for 80/443 (also open these ports in AWS security groups).
 backend_allow_public_web: true
-
-# Deployed trees should match GitHub; discard accidental edits on the instance (git reset --hard origin/<branch>).
 python_app_git_reset_to_origin: true

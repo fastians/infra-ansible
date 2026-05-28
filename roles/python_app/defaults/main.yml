@@ -15,19 +15,6 @@ app_extra_dirs: []
 # Before git pull: remove untracked bin/*.sif under the repo (common stray Singularity image path that blocks merges).
 app_git_clean_untracked_sif: true
 
-# When true, checkout matches remote exactly (git reset --hard origin/<branch>). Use on immutable deploy hosts; loses server-local edits.
-app_git_reset_to_origin: false
-
-# When true, checkout matches remote exactly (git reset --hard origin/<branch>). Use on immutable deploy hosts; loses server-local edits.
-app_git_reset_to_origin: false
-
-# Conda support: when true, use a conda env instead of venv
-# Set app_conda_dir + app_conda_env_name to point to an existing conda environment.
-# The conda environment must be created separately (e.g. via the conda role) before deploying.
-app_use_conda: false
-app_conda_dir: "/home/{{ app_user }}/miniconda3"
-app_conda_env_name: freecad_env
-
 # These must be provided by the caller:
 # app_name: Directory/repo name (e.g., MEK_LAB_BACKEND)
 # app_port: Port number (e.g., 8000)

@@ -33,6 +33,11 @@
         name: ufw
         state: present
 
+    - name: Allow OpenSSH on backend (required for ./scripts/deploy / Ansible)
+      ufw:
+        rule: allow
+        name: OpenSSH
+
     - name: Allow monitor IP to scrape backend ports
       ufw:
         rule: allow
