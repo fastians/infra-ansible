@@ -25,7 +25,17 @@ Three parallel app tiers; **never assume a single “prod” host**.
 |------|---------------|-----------|----------------------------|
 | **GCP legacy** | `backend-server`, `salome-server` | (existing GCP) | Legacy IPs |
 | **AWS staging** | `backend-aws-staging`, `salome-aws-staging` | `aws-app-staging` | Staging IPs only |
-| **AWS production** | `backend-aws-prod`, `salome-aws-prod` | `aws-app-production` | `api.mek-lab.com`, `salome.mek-lab.com` |
+| **AWS production** | `backend-aws-prod`, `salome-aws-prod` (+ optional `geo-aws-prod`, `llm-aws-prod`) | `aws-app-production` | `api.mek-lab.com`, `salome.mek-lab.com` |
+
+**Production API routing** (single public host `api.mek-lab.com`):
+
+| Path | Service | Typical upstream |
+|------|---------|------------------|
+| `/` | backendserver :8000 | localhost on API host |
+| `/geo/` | geoserver :8001 | localhost (all-in-one) or GEO host private IP |
+| `/llm/` | llmserver :8002 | localhost (all-in-one) or LLM host private IP |
+
+Set `nginx_geo_upstream`, `nginx_llm_upstream`, `geo_server_internal_url`, `llm_server_internal_url` in `host_vars/backend-aws-prod.yml` when split — see `host_vars/backend-aws-prod-split.example.yml`.
 
 Groups `[backend]` and `[salome]` include **both** staging and production children. Always use `--limit <hostname>` so `site.yml` does not touch every tier at once.
 
@@ -65,8 +75,30 @@ Narrow playbooks:
 
 ```bash
 ansible-playbook -i inventories/prod/hosts.ini playbooks/site-backend-apps.yml --limit backend-aws-prod
+ansible-playbook -i inventories/prod/hosts.ini playbooks/site-geo-apps.yml --limit geo-aws-prod
+ansible-playbook -i inventories/prod/hosts.ini playbooks/site-llm-apps.yml --limit llm-aws-prod
 ansible-playbook -i inventories/prod/hosts.ini playbooks/site-salome-apps.yml --limit salome-aws-prod -v
 ```
+
+## Split microservices migration (step-by-step)
+
+Current production can stay **all-in-one** (`backend-aws-prod` runs all three apps). To move to dedicated GEO/LLM hosts:
+
+1. **Terraform** — in `aws-app-production/terraform.tfvars` set `enable_split_microservices = true`, apply, note `geo_private_ip` / `llm_private_ip`.
+2. **Inventory** — uncomment `geo-aws-prod` / `llm-aws-prod` in `hosts.ini` with public IPs from `terraform output`.
+3. **Provision GEO + LLM** — base agents, deploy key, then:
+   ```bash
+   ansible-playbook -i inventories/prod/hosts.ini playbooks/site-geo-apps.yml --limit geo-aws-prod
+   ansible-playbook -i inventories/prod/hosts.ini playbooks/site-llm-apps.yml --limit llm-aws-prod
+   ```
+4. **Cut over API host** — merge `host_vars/backend-aws-prod-split.example.yml` into `backend-aws-prod.yml` (private upstream URLs, `python_apps` backend-only).
+5. **Redeploy backend + nginx** (with `backend_split_microservices: true` in host_vars, playbook removes GEO/LLM repos, systemd units, and miniconda from the API host):
+   ```bash
+   ansible-playbook -i inventories/prod/hosts.ini playbooks/site-backend-apps.yml --limit backend-aws-prod
+   ```
+6. **Verify** — `curl https://api.mek-lab.com/geo/docs`, `curl https://api.mek-lab.com/llm/docs`, load-cad from UI.
+
+Frontend URLs stay `https://api.mek-lab.com/geo` and `/llm` — no subdomain change required.
 
 ## New production host checklist
 
@@ -207,6 +239,14 @@ EOF
 | Login 401 / DB errors in logs | Postgres missing or not seeded | Install Postgres, `./db.sh upgrade`, `./db.sh seed`, restart `backendserver` |
 | `502` on `/geo/` or `/llm/` | `geoserver` / `llmserver` down | Check `systemctl status`; finish conda/geo/llm provision |
 | `503` on `load-cad` | Backend up but **GEO (8001) down** | `journalctl -u geoserver`; often missing `freecad_env/bin/uvicorn` → `pip install -r ~/.apps/MEK_LAB_GEO/requirements.txt` in conda env, `systemctl restart geoserver` |
+
+**GEO performance env** (in `roles/python_app/templates/env/geoserver.env.j2`, prod `group_vars/geo.yml`):
+
+- `GEO_SKIP_STL_CAPTURE=1` — skip STL capture during load-cad
+- `GEO_DISABLE_SUBCOMPONENT_JSON=1` + `GEO_MAX_SUBCOMPONENTS_PER_OBJECT=180` — cap subcomponent JSON on large assemblies
+- `geo_saas_backend_url` — internal backend URL for upload-step callbacks (split: `http://10.2.2.140:8000`, not `127.0.0.1`)
+
+**API nginx gzip** — `roles/nginx/templates/gzip.conf.j2` on backend host compresses JSON (and `model/gltf+json`) for `/` and `/geo/` proxied responses.
 | Git clone failed on new host | No deploy key for `mateen_fastians` | Copy `.ssh` from staging (see checklist) |
 
 ## Change Checklist

@@ -1,0 +1,10 @@
+---
+# AWS production GEO host (Terraform: aws-app-production, enable_split_microservices=true).
+# Fill ansible_host from: terraform output -raw geo_public_ip
+ansible_remote_tmp: /tmp/ansible-remote-{{ inventory_hostname }}
+app_skip_git_sync: false
+monitoring_enabled: true
+prometheus_instance: geo-aws-prod
+python_app_git_reset_to_origin: true
+
+vault_geoserver_engineering_repo_url: "git@github.com:mek-lab/MEK_LAB_GEO.git"

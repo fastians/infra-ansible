@@ -94,17 +94,6 @@
         | selectattr('app_use_conda', 'equalto', true)
         | list | length > 0
 
-    - name: Install pip requirements into conda env (GEO / geoserver)
-      shell: >
-        runuser -u mateen_fastians -- env
-        HOME=/home/mateen_fastians
-        {{ item.app_conda_dir | default('/home/mateen_fastians/miniconda3') }}/envs/{{ item.app_conda_env_name | default('freecad_env') }}/bin/pip
-        install -r {{ item.app_base_dir | default('/home/mateen_fastians/.apps') }}/{{ item.name }}/{{ item.app_requirements_path | default('requirements.txt') }}
-      args:
-        chdir: "/home/mateen_fastians"
-      become: yes
-      loop: "{{ _python_apps_target | selectattr('app_use_conda', 'defined') | selectattr('app_use_conda', 'equalto', true) | list }}"
-
     - name: Deploy Python applications
       include_role:
         name: python_app
@@ -126,3 +115,80 @@
         app_conda_dir: "{{ item.app_conda_dir | default('/home/mateen_fastians/miniconda3') }}"
         app_conda_env_name: "{{ item.app_conda_env_name | default('freecad_env') }}"
       loop: "{{ _python_apps_target }}"
+
+    - name: Install pip requirements into conda env (GEO / geoserver)
+      shell: >
+        runuser -u mateen_fastians -- env
+        HOME=/home/mateen_fastians
+        {{ item.app_conda_dir | default('/home/mateen_fastians/miniconda3') }}/envs/{{ item.app_conda_env_name | default('freecad_env') }}/bin/pip
+        install -r {{ item.app_base_dir | default('/home/mateen_fastians/.apps') }}/{{ item.name }}/{{ item.app_requirements_path | default('requirements.txt') }}
+      args:
+        chdir: "/home/mateen_fastians"
+      become: yes
+      loop: "{{ _python_apps_target | selectattr('app_use_conda', 'defined') | selectattr('app_use_conda', 'equalto', true) | list }}"
+
+  post_tasks:
+    - name: Split microservices — remove GEO/LLM from API host
+      when: backend_split_microservices | default(false)
+      block:
+        - name: Stop and disable geoserver and llmserver on API host
+          systemd:
+            name: "{{ item }}"
+            state: stopped
+            enabled: false
+          loop:
+            - geoserver
+            - llmserver
+          failed_when: false
+
+        - name: Remove geoserver and llmserver systemd units from API host
+          file:
+            path: "/etc/systemd/system/{{ item }}.service"
+            state: absent
+          loop:
+            - geoserver
+            - llmserver
+          register: split_removed_units
+
+        - name: Reload systemd after removing GEO/LLM units
+          systemd:
+            daemon_reload: true
+          when: split_removed_units is changed
+
+        - name: Remove GEO and LLM repos from API host
+          file:
+            path: "/home/mateen_fastians/.apps/{{ item }}"
+            state: absent
+          loop:
+            - MEK_LAB_GEO
+            - MEK_LAB_LLM_AGENT
+
+        - name: Remove quarantined GEO/LLM checkout dirs from API host
+          shell: |
+            shopt -s nullglob
+            for d in /home/mateen_fastians/.apps/MEK_LAB_GEO.stale-* /home/mateen_fastians/.apps/MEK_LAB_LLM_AGENT.stale-*; do
+              rm -rf "$d"
+            done
+          args:
+            executable: /bin/bash
+          changed_when: true
+
+        - name: Remove legacy GEO/LLM deploy scripts from API host
+          file:
+            path: "/home/mateen_fastians/.deploy/{{ item }}"
+            state: absent
+          loop:
+            - geoserver.sh
+            - llmserver.sh
+
+        - name: Remove Miniconda from API host (GEO runs on dedicated host)
+          file:
+            path: /home/mateen_fastians/miniconda3
+            state: absent
+
+        - name: Remove FreeCAD packages from API host when not needed
+          apt:
+            name: freecad-python3
+            state: absent
+            purge: true
+          when: not (backend_install_freecad | default(false))

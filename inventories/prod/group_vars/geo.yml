@@ -1,0 +1,27 @@
+# Dedicated GEO host (FreeCAD + geoserver). No public Nginx — reached via api host /geo/ proxy.
+promtail_config_template: "promtail-backend-config.yml.j2"
+
+# GEO → backend internal API (upload-step); must be reachable from GEO VPC (not 127.0.0.1 when split).
+geo_saas_backend_url: "http://10.2.2.140:8000"
+
+geo_app_python_version: "{{ '3.10' if ((ansible_facts | default({})).get('distribution_major_version', '24') | int) < 24 else '3.12' }}"
+backend_app_python_version: "3.12"
+backend_install_freecad: true
+python_app_git_reset_to_origin: false
+app_host: "0.0.0.0"
+
+python_apps:
+  - name: MEK_LAB_GEO
+    port: 8001
+    repo_url: "{{ vault_geoserver_engineering_repo_url }}"
+    branch: main
+    description: "Mek-Lab GEO (internal :8001; public via api nginx → /geo/)"
+    app_base_dir: "/home/mateen_fastians/.apps"
+    app_env_template: "geoserver.env.j2"
+    app_systemd_name: geoserver
+    app_requirements_path: "requirements.txt"
+    app_entry_point: "main:app"
+    app_python_version: "{{ geo_app_python_version }}"
+    app_use_conda: true
+    app_conda_dir: /home/mateen_fastians/miniconda3
+    app_conda_env_name: freecad_env

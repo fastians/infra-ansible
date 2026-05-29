@@ -1,0 +1,19 @@
+# Dedicated LLM/RAG host (llmserver). No public Nginx — reached via api host /llm/ proxy.
+promtail_config_template: "promtail-backend-config.yml.j2"
+
+backend_app_python_version: "3.12"
+backend_install_freecad: false
+python_app_git_reset_to_origin: false
+app_host: "0.0.0.0"
+
+python_apps:
+  - name: MEK_LAB_LLM_AGENT
+    port: 8002
+    repo_url: "{{ vault_meklab_llm_repo_url }}"
+    branch: main
+    description: "Mek-Lab LLM (internal :8002; public via api nginx → /llm/)"
+    app_base_dir: "/home/mateen_fastians/.apps"
+    app_env_template: "llmserver.env.j2"
+    app_systemd_name: llmserver
+    app_requirements_path: "requirements.txt"
+    app_entry_point: "app.main:app"

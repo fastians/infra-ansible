@@ -1,0 +1,8 @@
+---
+# AWS production LLM host (Terraform: aws-app-production, enable_split_microservices=true).
+# Fill ansible_host from: terraform output -raw llm_public_ip
+ansible_remote_tmp: /tmp/ansible-remote-{{ inventory_hostname }}
+app_skip_git_sync: false
+monitoring_enabled: true
+prometheus_instance: llm-aws-prod
+python_app_git_reset_to_origin: true

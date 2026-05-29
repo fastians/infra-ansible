@@ -1,6 +1,6 @@
 ---
-- name: Application Servers (backend + salome)
-  hosts: backend,salome
+- name: Application Servers (backend + salome + geo + llm)
+  hosts: backend,salome,geo,llm
   become: yes
   roles:
     - common

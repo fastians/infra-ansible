@@ -1,0 +1,98 @@
+---
+- name: GEO Server (geoserver only)
+  hosts: geo
+  become: yes
+  vars:
+    _python_apps_target: >-
+      {{
+        python_apps
+        if (deploy_filter_systemd | default('') == '')
+        else (python_apps | selectattr('app_systemd_name', 'equalto', deploy_filter_systemd) | list)
+      }}
+  pre_tasks:
+    - name: Ensure application user exists
+      user:
+        name: mateen_fastians
+        shell: /bin/bash
+        create_home: yes
+      become: yes
+
+    - name: Ensure app base directory exists
+      file:
+        path: /home/mateen_fastians/.apps
+        state: directory
+        owner: mateen_fastians
+        group: mateen_fastians
+        mode: "0755"
+      become: yes
+
+  tasks:
+    - name: Ensure software-properties-common is installed
+      apt:
+        name: software-properties-common
+        state: present
+        update_cache: yes
+      when: backend_install_freecad | default(false)
+
+    - name: Add FreeCAD stable PPA
+      apt_repository:
+        repo: "ppa:freecad-maintainers/freecad-stable"
+        state: present
+        update_cache: yes
+      when: backend_install_freecad | default(false)
+
+    - name: Install FreeCAD Python bindings
+      apt:
+        name: freecad-python3
+        state: present
+        update_cache: yes
+      when: backend_install_freecad | default(false)
+
+    - name: Set up Miniconda + freecad_env for GEO service
+      include_role:
+        name: conda
+      vars:
+        conda_user: mateen_fastians
+        conda_install_dir: /home/mateen_fastians/miniconda3
+        conda_env_name: freecad_env
+        conda_python_version: "3.12"
+        conda_freecad_version: "1.0.0"
+        conda_occ_version: "7.8.1.1"
+      when: >-
+        _python_apps_target
+        | selectattr('app_use_conda', 'defined')
+        | selectattr('app_use_conda', 'equalto', true)
+        | list | length > 0
+
+    - name: Deploy GEO Python application
+      include_role:
+        name: python_app
+      vars:
+        app_name: "{{ item.name }}"
+        app_port: "{{ item.port }}"
+        app_repo_url: "{{ item.repo_url }}"
+        app_branch: "{{ deploy_branch_override | default(item.branch) }}"
+        app_description: "{{ item.description }}"
+        app_base_dir: "{{ item.app_base_dir | default(omit) }}"
+        app_env_template: "{{ item.app_env_template | default(omit) }}"
+        app_systemd_name: "{{ item.app_systemd_name | default(omit) }}"
+        app_requirements_path: "{{ item.app_requirements_path | default('requirements.txt') }}"
+        app_entry_point: "{{ item.app_entry_point | default(omit) }}"
+        app_extra_dirs: "{{ item.app_extra_dirs | default([]) }}"
+        app_python_version: "{{ item.app_python_version | default(backend_app_python_version | default('3.12')) }}"
+        app_git_reset_to_origin: "{{ item.app_git_reset_to_origin | default(python_app_git_reset_to_origin | default(false)) }}"
+        app_use_conda: "{{ item.app_use_conda | default(false) }}"
+        app_conda_dir: "{{ item.app_conda_dir | default('/home/mateen_fastians/miniconda3') }}"
+        app_conda_env_name: "{{ item.app_conda_env_name | default('freecad_env') }}"
+      loop: "{{ _python_apps_target }}"
+
+    - name: Install pip requirements into conda env
+      shell: >
+        runuser -u mateen_fastians -- env
+        HOME=/home/mateen_fastians
+        {{ item.app_conda_dir | default('/home/mateen_fastians/miniconda3') }}/envs/{{ item.app_conda_env_name | default('freecad_env') }}/bin/pip
+        install -r {{ item.app_base_dir | default('/home/mateen_fastians/.apps') }}/{{ item.name }}/{{ item.app_requirements_path | default('requirements.txt') }}
+      args:
+        chdir: "/home/mateen_fastians"
+      become: yes
+      loop: "{{ _python_apps_target | selectattr('app_use_conda', 'defined') | selectattr('app_use_conda', 'equalto', true) | list }}"

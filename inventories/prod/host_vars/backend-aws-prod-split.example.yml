@@ -1,0 +1,28 @@
+---
+# Example host_vars for split microservices on backend-aws-prod.
+# Copy relevant keys into host_vars/backend-aws-prod.yml after GEO/LLM hosts are live.
+#
+# Get private IPs from Terraform:
+#   terraform output geo_private_ip
+#   terraform output llm_private_ip
+
+backend_split_microservices: true
+backend_install_freecad: false
+
+nginx_geo_upstream: "http://10.2.2.XX:8001"
+nginx_llm_upstream: "http://10.2.2.YY:8002"
+geo_server_internal_url: "http://10.2.2.XX:8001"
+llm_server_internal_url: "http://10.2.2.YY:8002"
+
+# Deploy only backendserver on this host (stop geoserver/llmserver here after cutover).
+python_apps:
+  - name: MEK_LAB_BACKEND
+    port: 8000
+    repo_url: "{{ vault_mek_lab_backend_repo_url }}"
+    branch: main
+    description: "Mek-Lab API (public via nginx → /)"
+    app_base_dir: "/home/mateen_fastians/.apps"
+    app_env_template: "backendserver.env.j2"
+    app_systemd_name: backendserver
+    app_requirements_path: "requirements.txt"
+    app_entry_point: "app.main:app"

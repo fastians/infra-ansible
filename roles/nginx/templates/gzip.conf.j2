@@ -1,0 +1,17 @@
+# MEK-LAB API: extend Ubuntu nginx defaults (gzip on is already in nginx.conf http {}).
+# gzip_proxied + proxy_buffering on API locations compress load-cad / download-gltf JSON.
+gzip_vary on;
+gzip_proxied any;
+gzip_comp_level 5;
+gzip_min_length 1024;
+gzip_buffers 16 8k;
+gzip_http_version 1.1;
+gzip_types
+    application/json
+    application/javascript
+    application/xml
+    text/json
+    text/plain
+    text/css
+    text/xml
+    model/gltf+json;

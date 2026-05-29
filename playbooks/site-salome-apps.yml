@@ -293,51 +293,6 @@
         app_name: "{{ python_apps[0].name }}"
         salome_code_aster_bin: "{{ salome_code_aster_bin_resolved }}"
 
-        group: mateen_fastians
-        mode: "0755"
-      become: yes
-
-    - name: Download Salome launcher binary (old server compatible)
-      get_url:
-        url: "{{ salome_runtime_bin_url }}"
-        dest: "{{ salome_runtime_dir }}/{{ salome_runtime_bin_name }}"
-        owner: mateen_fastians
-        group: mateen_fastians
-        mode: "0755"
-      become: yes
-
-    - name: Download Salome runtime image (SIF)
-      get_url:
-        url: "{{ salome_runtime_sif_url }}"
-        dest: "{{ salome_runtime_dir }}/{{ salome_runtime_bin_name }}.sif"
-        owner: mateen_fastians
-        group: mateen_fastians
-        mode: "0644"
-      become: yes
-
-    - name: Create legacy Salome symlink path
-      file:
-        src: "{{ salome_runtime_dir }}/{{ salome_runtime_bin_name }}"
-        dest: "{{ salome_runtime_symlink }}"
-        state: link
-        owner: mateen_fastians
-        group: mateen_fastians
-        force: yes
-      become: yes
-
-    # Salome: .env in app/ so the app finds it; unit loads app/.env
-    - name: Deploy Salome app/.env
-      template:
-        src: "{{ playbook_dir }}/../roles/python_app/templates/env/salomeserver.env.j2"
-        dest: "{{ python_apps[0].app_base_dir }}/{{ python_apps[0].name }}/app/.env"
-        owner: mateen_fastians
-        group: mateen_fastians
-        mode: "0600"
-      vars:
-        app_user: mateen_fastians
-        app_base_dir: "{{ python_apps[0].app_base_dir }}"
-        app_name: "{{ python_apps[0].name }}"
-
     - name: Deploy salomeserver.service
       template:
         src: "{{ playbook_dir }}/templates/salomeserver.service.j2"

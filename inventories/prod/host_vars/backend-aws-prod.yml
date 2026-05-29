@@ -1,11 +1,17 @@
 ---
-# AWS production backend (Terraform: aws-app-production). m6i.2xlarge (GEO runs on this host).
-# Avoid ACL chmod errors when become_user=mateen_fastians (Ansible 2.20+).
+# AWS production backend/API host (Terraform: aws-app-production).
+# Split mode: backend only on this VM; GEO/LLM on geo-aws-prod + llm-aws-prod.
 ansible_remote_tmp: /tmp/ansible-remote-{{ inventory_hostname }}
 app_skip_git_sync: false
 monitoring_enabled: true
 
-vault_geoserver_engineering_repo_url: "git@github.com:mek-lab/MEK_LAB_GEO.git"
+backend_split_microservices: true
+backend_install_freecad: false
+
+nginx_geo_upstream: "http://10.2.2.91:8001"
+nginx_llm_upstream: "http://10.2.2.151:8002"
+geo_server_internal_url: "http://10.2.2.91:8001"
+llm_server_internal_url: "http://10.2.2.151:8002"
 
 nginx_server_name: "{{ api_public_host }}"
 nginx_bind_http_to_inventory_ip: true
@@ -15,3 +21,16 @@ prometheus_instance: backend-aws-prod
 
 backend_allow_public_web: true
 python_app_git_reset_to_origin: true
+
+# Backend-only on API host (geoserver/llmserver run on dedicated GEO/LLM VMs).
+python_apps:
+  - name: MEK_LAB_BACKEND
+    port: 8000
+    repo_url: "{{ vault_mek_lab_backend_repo_url }}"
+    branch: main
+    description: "Mek-Lab API (public via nginx → /)"
+    app_base_dir: "/home/mateen_fastians/.apps"
+    app_env_template: "backendserver.env.j2"
+    app_systemd_name: backendserver
+    app_requirements_path: "requirements.txt"
+    app_entry_point: "app.main:app"

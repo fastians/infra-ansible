@@ -17,6 +17,12 @@ nginx_bind_http_to_inventory_ip: false
 # Optional extra server_name tokens on port 80 (e.g. another DNS name during migration).
 nginx_extra_server_names: []
 
-# Remove obsolete configs that can conflict with the canonical nginx_config_name.
-nginx_remove_legacy_configs:
-  - mek-lab.conf
+# Optional upstream overrides for split microservices (defaults: localhost on all-in-one hosts).
+# Example on backend-aws-prod when GEO/LLM run on separate EC2 instances:
+#   nginx_geo_upstream: "http://10.2.2.45:8001"
+#   nginx_llm_upstream: "http://10.2.2.46:8002"
+nginx_geo_upstream: "http://127.0.0.1:8001"
+nginx_llm_upstream: "http://127.0.0.1:8002"
+
+# Deploy conf.d/gzip-meklab.conf (JSON/GLTF compression on API nginx).
+nginx_gzip_enabled: true

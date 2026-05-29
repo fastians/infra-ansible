@@ -1,0 +1,50 @@
+---
+- name: LLM Server (llmserver only)
+  hosts: llm
+  become: yes
+  vars:
+    _python_apps_target: >-
+      {{
+        python_apps
+        if (deploy_filter_systemd | default('') == '')
+        else (python_apps | selectattr('app_systemd_name', 'equalto', deploy_filter_systemd) | list)
+      }}
+  pre_tasks:
+    - name: Ensure application user exists
+      user:
+        name: mateen_fastians
+        shell: /bin/bash
+        create_home: yes
+      become: yes
+
+    - name: Ensure app base directory exists
+      file:
+        path: /home/mateen_fastians/.apps
+        state: directory
+        owner: mateen_fastians
+        group: mateen_fastians
+        mode: "0755"
+      become: yes
+
+  tasks:
+    - name: Deploy LLM Python application
+      include_role:
+        name: python_app
+      vars:
+        app_name: "{{ item.name }}"
+        app_port: "{{ item.port }}"
+        app_repo_url: "{{ item.repo_url }}"
+        app_branch: "{{ deploy_branch_override | default(item.branch) }}"
+        app_description: "{{ item.description }}"
+        app_base_dir: "{{ item.app_base_dir | default(omit) }}"
+        app_env_template: "{{ item.app_env_template | default(omit) }}"
+        app_systemd_name: "{{ item.app_systemd_name | default(omit) }}"
+        app_requirements_path: "{{ item.app_requirements_path | default('requirements.txt') }}"
+        app_entry_point: "{{ item.app_entry_point | default(omit) }}"
+        app_extra_dirs: "{{ item.app_extra_dirs | default([]) }}"
+        app_python_version: "{{ item.app_python_version | default(backend_app_python_version | default('3.12')) }}"
+        app_git_reset_to_origin: "{{ item.app_git_reset_to_origin | default(python_app_git_reset_to_origin | default(false)) }}"
+        app_use_conda: "{{ item.app_use_conda | default(false) }}"
+        app_conda_dir: "{{ item.app_conda_dir | default('/home/mateen_fastians/miniconda3') }}"
+        app_conda_env_name: "{{ item.app_conda_env_name | default('freecad_env') }}"
+      loop: "{{ _python_apps_target }}"

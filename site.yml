@@ -5,4 +5,6 @@
 - import_playbook: playbooks/site-monitoring.yml
 - import_playbook: playbooks/site-base-agents.yml
 - import_playbook: playbooks/site-backend-apps.yml
+- import_playbook: playbooks/site-geo-apps.yml
 - import_playbook: playbooks/site-salome-apps.yml
+- import_playbook: playbooks/site-llm-apps.yml

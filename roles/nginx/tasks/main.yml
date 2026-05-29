@@ -88,6 +88,17 @@
   become: yes
   notify: reload nginx
 
+- name: Enable gzip for JSON and GLTF API payloads
+  template:
+    src: gzip.conf.j2
+    dest: /etc/nginx/conf.d/gzip-meklab.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: nginx_gzip_enabled | default(true)
+  become: yes
+  notify: reload nginx
+
 - name: Ensure nginx is started and enabled
   systemd:
     name: nginx
@@ -104,3 +115,26 @@
     - nginx_certbot_auto | default(false) | bool
     - (certbot_admin_email | default('') | length) > 0
     - not nginx_le_cert_stat.stat.exists
+
+- name: Re-check Let's Encrypt certificate (post-Certbot)
+  stat:
+    path: "/etc/letsencrypt/live/{{ nginx_server_name }}/fullchain.pem"
+  register: nginx_le_cert_stat_final
+  become: yes
+
+- name: Redeploy nginx site with TLS when certificate is present
+  template:
+    src: "{{ nginx_template }}"
+    dest: "/etc/nginx/sites-available/{{ nginx_config_name }}"
+    owner: root
+    group: root
+    mode: "0644"
+  vars:
+    nginx_le_cert_present: "{{ nginx_le_cert_stat_final.stat.exists }}"
+  when: nginx_le_cert_stat_final.stat.exists
+  become: yes
+  notify: reload nginx
+
+- name: Activate TLS listener (reload nginx after certificate)
+  meta: flush_handlers
+  when: nginx_le_cert_stat_final.stat.exists

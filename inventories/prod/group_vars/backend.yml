@@ -1,4 +1,6 @@
-# Mek-Lab API host: one VM, three FastAPI units (see site_constants.yml naming).
+# Mek-Lab API host: default = one VM, three FastAPI units (staging + all-in-one prod).
+# Split production: backend-aws-prod runs backend only; geo-aws-prod + llm-aws-prod run GEO/LLM.
+# See host_vars/backend-aws-prod-split.example.yml and group_vars/geo.yml, llm.yml.
 # Promtail ships logs to Loki on monitor server
 promtail_config_template: "promtail-backend-config.yml.j2"
 
