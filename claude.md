@@ -100,60 +100,6 @@ Current production can stay **all-in-one** (`backend-aws-prod` runs all three ap
 
 Frontend URLs stay `https://api.mek-lab.com/geo` and `/llm` — no subdomain change required.
 
-## GEO host replace / resize (e.g. `c7i.4xlarge` → `t3.large`)
-
-Terraform `geo_instance_type` change **destroys and recreates** the GEO EC2. Follow this after `terraform apply -target=module.geo`:
-
-1. **Terraform** — `make output ENV=aws-app-production` → note `geo_public_ip`, `geo_private_ip`.
-2. **Inventory** — `hosts.ini` `geo-aws-prod` `ansible_host` = new public IP.
-3. **API nginx upstream** — `host_vars/backend-aws-prod.yml`:
-   - `nginx_geo_upstream: "http://<geo_private_ip>:8001"`
-   - `geo_server_internal_url: "http://<geo_private_ip>:8001"`
-4. **Deploy key** — copy `mateen_fastians` `.ssh` from an existing prod app host (backend-aws-prod):
-   ```bash
-   ssh ubuntu@<backend-ip> 'sudo tar cf - -C /home/mateen_fastians .ssh' | \
-   ssh ubuntu@<new-geo-ip> 'sudo mkdir -p /home/mateen_fastians && sudo tar xf - -C /home/mateen_fastians && sudo chown -R mateen_fastians:mateen_fastians /home/mateen_fastians/.ssh && sudo chmod 700 /home/mateen_fastians/.ssh && sudo chmod 600 /home/mateen_fastians/.ssh/id_ed25519'
-   ```
-5. **Secrets + provision GEO**:
-   ```bash
-   cd infra_ansible
-   bash ./scripts/sync-env-production.sh
-   ansible-playbook -i inventories/prod/hosts.ini playbooks/site-geo-apps.yml --limit geo-aws-prod
-   ./scripts/deploy geoserver main geo-aws-prod
-   ```
-6. **Refresh API host nginx** (private upstream changed):
-   ```bash
-   ansible-playbook -i inventories/prod/hosts.ini playbooks/site-backend-apps.yml --limit backend-aws-prod
-   ```
-7. **Verify** — `curl https://api.mek-lab.com/geo/docs`
-
-Do **not** scp `.env` from the old GEO VM — Ansible templates render `geoserver.env.j2` from vault (see **App env files** above).
-
-## LLM host replace / resize (e.g. `m7i.xlarge` → `t3.small`)
-
-Terraform `llm_instance_type` change **destroys and recreates** the LLM EC2. Follow this after `terraform apply -target=module.llm`:
-
-1. **Terraform** — `make output ENV=aws-app-production` → note `llm_public_ip`, `llm_private_ip`.
-2. **Inventory** — `hosts.ini` `llm-aws-prod` `ansible_host` = new public IP.
-3. **API nginx upstream** — `host_vars/backend-aws-prod.yml`:
-   - `nginx_llm_upstream: "http://<llm_private_ip>:8002"`
-   - `llm_server_internal_url: "http://<llm_private_ip>:8002"`
-4. **Deploy key** — copy `mateen_fastians` `.ssh` from `backend-aws-prod` (same tar pipe as GEO checklist).
-5. **Secrets + provision LLM**:
-   ```bash
-   cd infra_ansible
-   bash ./scripts/sync-env-production.sh
-   ansible-playbook -i inventories/prod/hosts.ini playbooks/site-llm-apps.yml --limit llm-aws-prod
-   ./scripts/deploy llmserver main llm-aws-prod
-   ```
-6. **Refresh API host nginx**:
-   ```bash
-   ansible-playbook -i inventories/prod/hosts.ini playbooks/site-backend-apps.yml --limit backend-aws-prod
-   ```
-7. **Verify** — `curl https://api.mek-lab.com/llm/docs`
-
-Do **not** scp `.env` from the old LLM VM — Ansible renders `llmserver.env.j2` from vault.
-
 ## New production host checklist
 
 After Terraform creates VMs (`infra_terraform/environments/aws-app-production`):
@@ -301,6 +247,9 @@ EOF
 - `geo_saas_backend_url` — internal backend URL for upload-step callbacks (split: `http://10.2.2.140:8000`, not `127.0.0.1`)
 
 **API nginx gzip** — `roles/nginx/templates/gzip.conf.j2` on backend host compresses JSON (and `model/gltf+json`) for `/` and `/geo/` proxied responses.
+
+| Symptom | Likely cause | Fix |
+|---------|-------------|-----|
 | Git clone failed on new host | No deploy key for `mateen_fastians` | Copy `.ssh` from staging (see checklist) |
 
 ## Change Checklist
