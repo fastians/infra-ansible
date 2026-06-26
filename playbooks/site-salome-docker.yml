@@ -1,7 +1,6 @@
 ---
-# Switch salome server from bare systemd service → Docker container.
-# Run: bash ./scripts/provision salome-aws-prod --playbook playbooks/site-salome-docker.yml
-# Or:  ansible-playbook -i inventories/prod/hosts.ini playbooks/site-salome-docker.yml --limit salome-aws-prod
+# Stop bare salomeserver systemd service and run via Docker + push image to ECR.
+# Usage: ansible-playbook -i inventories/prod/hosts.ini playbooks/site-salome-docker.yml --limit salome-aws-prod
 - name: Salome — switch to Docker
   hosts: salome
   become: yes
@@ -11,49 +10,42 @@
     app_name: "MEK_LAB_SALOME"
     app_dir: "{{ app_base_dir }}/{{ app_name }}"
     sif_name: "salome_meca-lgpl-2024.1.0-1-20240327-scibian-11.sif"
-    sif_src_candidates:
-      - "/home/ubuntu/{{ sif_name }}"
-      - "/home/mateen_fastians/opt/salome_meca/{{ sif_name }}"
     sif_dest: "{{ app_dir }}/bin/{{ sif_name }}"
+    aws_region: "{{ vault_aws_ses_region | default('ap-northeast-2') }}"
 
   tasks:
-    # ── 1. Docker ────────────────────────────────────────────────────────────
-    - name: Install Docker and compose plugin
+    - name: Install Docker, compose plugin, and AWS CLI
       apt:
         name:
           - docker.io
           - docker-compose-plugin
+          - awscli
         state: present
         update_cache: yes
 
-    - name: Start and enable Docker daemon
+    - name: Start and enable Docker
       systemd:
         name: docker
         state: started
         enabled: yes
 
-    - name: Add ubuntu to docker group
+    - name: Add users to docker group
       user:
-        name: ubuntu
+        name: "{{ item }}"
         groups: docker
         append: yes
+      loop:
+        - ubuntu
+        - mateen_fastians
 
-    - name: Add mateen_fastians to docker group
-      user:
-        name: mateen_fastians
-        groups: docker
-        append: yes
-
-    # ── 2. Stop bare systemd service ─────────────────────────────────────────
-    - name: Stop and disable bare salomeserver systemd service
+    - name: Stop and disable bare salomeserver
       systemd:
         name: salomeserver
         state: stopped
         enabled: no
       ignore_errors: yes
 
-    # ── 3. SIF — move to repo bin/ ────────────────────────────────────────────
-    - name: Ensure repo bin/ directory exists
+    - name: Ensure repo bin/ exists
       file:
         path: "{{ app_dir }}/bin"
         state: directory
@@ -61,34 +53,22 @@
         group: ubuntu
         mode: "0755"
 
-    - name: Move SIF to repo bin/ (from known candidate locations)
+    - name: Move SIF to repo bin/ if found in legacy location
       shell: |
         set -e
-        for src in {{ sif_src_candidates | join(' ') }}; do
+        for src in /home/ubuntu/{{ sif_name }} /home/mateen_fastians/opt/salome_meca/{{ sif_name }}; do
           if [ -f "$src" ]; then
             mv "$src" "{{ sif_dest }}"
             chown ubuntu:ubuntu "{{ sif_dest }}"
-            echo "moved from $src"
             exit 0
           fi
         done
-        if [ -f "{{ sif_dest }}" ]; then
-          echo "already in place"
-          exit 0
-        fi
-        echo "SIF not found — run: make sif-download"
-        exit 1
+        [ -f "{{ sif_dest }}" ] || { echo "SIF not found — run: make sif-download"; exit 1; }
       args:
         executable: /bin/bash
-      register: sif_move
-      changed_when: "'moved from' in sif_move.stdout"
+      changed_when: false
 
-    - name: Show SIF placement result
-      debug:
-        msg: "{{ sif_move.stdout }}"
-
-    # ── 4. Pull latest code ───────────────────────────────────────────────────
-    - name: Pull latest MEK_LAB_SALOME code
+    - name: Pull latest code
       git:
         repo: "{{ vault_salome_engineering_repo_url }}"
         dest: "{{ app_dir }}"
@@ -96,8 +76,7 @@
         force: no
       become_user: mateen_fastians
 
-    # ── 5. Deploy app/.env ────────────────────────────────────────────────────
-    - name: Deploy salome app/.env for Docker
+    - name: Deploy app/.env
       template:
         src: "{{ playbook_dir }}/../roles/python_app/templates/env/salomeserver.env.j2"
         dest: "{{ app_dir }}/app/.env"
@@ -106,43 +85,27 @@
         mode: "0600"
       vars:
         app_user: ubuntu
-        app_base_dir: "{{ app_base_dir }}"
-        app_name: "{{ app_name }}"
         salome_code_aster_bin: ""
 
-    # ── 6. Build and start Docker container ──────────────────────────────────
-    - name: Build and start salome docker-compose
+    - name: Build and start docker-compose
       shell: |
         cd {{ app_dir }}
         docker compose down --remove-orphans 2>/dev/null || true
-        docker compose up --build -d
+        SALOME_SIF_PATH={{ sif_dest }} docker compose up --build -d
       args:
         executable: /bin/bash
-      environment:
-        SALOME_SIF_PATH: "{{ sif_dest }}"
 
-    - name: Wait for salome container to be healthy
+    - name: Wait for container healthy
       shell: |
-        for i in $(seq 1 20); do
-          status=$(docker inspect --format='{{"{{"}}{{".State.Health.Status"}}{{"}}"}}' \
-            $(docker compose -f {{ app_dir }}/docker-compose.yml ps -q salome-api 2>/dev/null) 2>/dev/null || echo "none")
-          echo "attempt $i: $status"
-          [ "$status" = "healthy" ] && exit 0
-          sleep 10
-        done
-        echo "container did not become healthy in time"
-        exit 1
-      args:
-        executable: /bin/bash
-      register: health_wait
+        docker inspect --format='{{ '{{' }}.State.Health.Status{{ '}}' }}' \
+          $(docker compose -f {{ app_dir }}/docker-compose.yml ps -q salome-api)
+      register: health
+      until: health.stdout == "healthy"
+      retries: 20
+      delay: 10
       changed_when: false
 
-    - name: Show health check result
-      debug:
-        msg: "{{ health_wait.stdout_lines }}"
-
-    # ── 7. Update nginx upstream port 8000 → 40010 ───────────────────────────
-    - name: Update nginx salome upstream to port 40010
+    - name: Update nginx upstream to port 40010
       replace:
         path: /etc/nginx/sites-enabled/salome.conf
         regexp: 'localhost:8000'
@@ -150,39 +113,29 @@
       notify: reload nginx
       ignore_errors: yes
 
-    # ── 8. Push image to ECR ──────────────────────────────────────────────────
     - name: Get AWS account ID
       shell: aws sts get-caller-identity --query Account --output text
       register: aws_account_id
       changed_when: false
 
-    - name: Set ECR registry URL
-      set_fact:
-        ecr_registry: "{{ aws_account_id.stdout }}.dkr.ecr.ap-northeast-2.amazonaws.com"
-        ecr_repo: "{{ aws_account_id.stdout }}.dkr.ecr.ap-northeast-2.amazonaws.com/mek-lab/salome"
-
     - name: Login to ECR
       shell: |
-        aws ecr get-login-password --region ap-northeast-2 | \
-          docker login --username AWS --password-stdin {{ ecr_registry }}
+        aws ecr get-login-password --region {{ aws_region }} | \
+          docker login --username AWS --password-stdin \
+          {{ aws_account_id.stdout }}.dkr.ecr.{{ aws_region }}.amazonaws.com
       args:
         executable: /bin/bash
+      changed_when: false
 
-    - name: Tag and push salome image to ECR
+    - name: Push image to ECR
       shell: |
-        IMAGE_ID=$(docker compose -f {{ app_dir }}/docker-compose.yml images -q salome-api)
-        docker tag "$IMAGE_ID" {{ ecr_repo }}:latest
-        docker tag "$IMAGE_ID" {{ ecr_repo }}:$(date +%Y%m%d-%H%M)
-        docker push {{ ecr_repo }}:latest
-        docker push {{ ecr_repo }}:$(date +%Y%m%d-%H%M)
-        echo "pushed to {{ ecr_repo }}"
+        ECR={{ aws_account_id.stdout }}.dkr.ecr.{{ aws_region }}.amazonaws.com/mek-lab/salome
+        IMAGE=$(docker compose -f {{ app_dir }}/docker-compose.yml images -q salome-api)
+        docker tag "$IMAGE" "$ECR:latest"
+        docker push "$ECR:latest"
       args:
         executable: /bin/bash
-      register: ecr_push
-
-    - name: Show ECR push result
-      debug:
-        msg: "{{ ecr_push.stdout_lines }}"
+      changed_when: true
 
   handlers:
     - name: reload nginx
