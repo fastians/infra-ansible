@@ -36,7 +36,6 @@
         owner: mateen_fastians
         group: mateen_fastians
         mode: "0600"
-      when: inventory_hostname == 'backend-server'
       notify: Restart backendserver
 
   handlers:

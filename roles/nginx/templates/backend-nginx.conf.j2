@@ -1,3 +1,12 @@
+{% set _geo_nodes = nginx_geo_upstream_nodes | default([nginx_geo_upstream | default('http://127.0.0.1:8001') | regex_replace('^https?://', '')]) %}
+# GEO upstream pool — round-robins (and fails over) across all listed nodes/IPs.
+# Single-entry fallback to nginx_geo_upstream keeps non-K8s hosts working unchanged.
+upstream mek_geo_backend {
+{% for _node in _geo_nodes %}
+    server {{ _node }};
+{% endfor %}
+}
+
 {% macro backend_app_locations() %}
     # =========================
     # CORE BACKEND (8000)
@@ -26,7 +35,7 @@
     # GEO (8001) — local or remote upstream
     # =========================
     location /geo/ {
-        proxy_pass {{ nginx_geo_upstream | default('http://127.0.0.1:8001') }}/;
+        proxy_pass http://mek_geo_backend/;
 
         proxy_buffering on;
         proxy_buffer_size 128k;

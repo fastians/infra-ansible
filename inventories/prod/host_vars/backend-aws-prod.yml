@@ -8,10 +8,12 @@ monitoring_enabled: true
 backend_split_microservices: true
 backend_install_freecad: false
 
-nginx_geo_upstream: "http://10.2.2.91:8001"
-nginx_llm_upstream: "http://10.2.2.151:8002"
-geo_server_internal_url: "http://10.2.2.91:8001"
-llm_server_internal_url: "http://10.2.2.151:8002"
+# GEO runs on standalone EC2 geo-aws-prod (i-06c4e1884908fd9bf, private IP 10.2.2.171:8001).
+# Migrated back from EKS cluster `mek-lab` (decommissioned) on 2026-06-23.
+nginx_geo_upstream: "http://10.2.2.171:8001"
+nginx_llm_upstream: "http://10.2.2.191:8002"
+geo_server_internal_url: "http://10.2.2.171:8001"
+llm_server_internal_url: "http://10.2.2.191:8002"
 
 nginx_server_name: "{{ api_public_host }}"
 nginx_bind_http_to_inventory_ip: true

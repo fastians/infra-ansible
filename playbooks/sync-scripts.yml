@@ -4,6 +4,12 @@
 
 - hosts: backend
   tasks:
+    - name: Ensure deploy group exists
+      group:
+        name: deploy
+        state: present
+      become: yes
+
     - name: Ensure deploy directory exists
       file:
         path: /home/mateen_fastians/.deploy
@@ -35,6 +41,70 @@
         - backendserver.sh
         - geoserver.sh
         - llmserver.sh
+
+- hosts: geo
+  tasks:
+    - name: Ensure deploy group exists
+      group:
+        name: deploy
+        state: present
+      become: yes
+
+    - name: Ensure deploy directory exists
+      file:
+        path: /home/mateen_fastians/.deploy
+        state: directory
+        owner: mateen_fastians
+        group: deploy
+        mode: '0750'
+      become: yes
+
+    - name: Sync deployment script to GEO server
+      copy:
+        src: "../deployment_scripts/geoserver.sh"
+        dest: "/home/mateen_fastians/.deploy/geoserver.sh"
+        owner: mateen_fastians
+        group: deploy
+        mode: '0750'
+      become: yes
+
+    - name: Verify script is executable
+      file:
+        path: "/home/mateen_fastians/.deploy/geoserver.sh"
+        mode: '0750'
+      become: yes
+
+- hosts: llm
+  tasks:
+    - name: Ensure deploy group exists
+      group:
+        name: deploy
+        state: present
+      become: yes
+
+    - name: Ensure deploy directory exists
+      file:
+        path: /home/mateen_fastians/.deploy
+        state: directory
+        owner: mateen_fastians
+        group: deploy
+        mode: '0750'
+      become: yes
+
+    - name: Sync deployment script to LLM server
+      copy:
+        src: "../deployment_scripts/llmserver.sh"
+        dest: "/home/mateen_fastians/.deploy/llmserver.sh"
+        owner: mateen_fastians
+        group: deploy
+        mode: '0750'
+      become: yes
+
+    - name: Verify script is executable
+      file:
+        path: "/home/mateen_fastians/.deploy/llmserver.sh"
+        mode: '0750'
+      become: yes
 
 - hosts: salome
   tasks:

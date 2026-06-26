@@ -100,6 +100,60 @@ Current production can stay **all-in-one** (`backend-aws-prod` runs all three ap
 
 Frontend URLs stay `https://api.mek-lab.com/geo` and `/llm` — no subdomain change required.
 
+## GEO host replace / resize (e.g. `c7i.4xlarge` → `t3.large`)
+
+Terraform `geo_instance_type` change **destroys and recreates** the GEO EC2. Follow this after `terraform apply -target=module.geo`:
+
+1. **Terraform** — `make output ENV=aws-app-production` → note `geo_public_ip`, `geo_private_ip`.
+2. **Inventory** — `hosts.ini` `geo-aws-prod` `ansible_host` = new public IP.
+3. **API nginx upstream** — `host_vars/backend-aws-prod.yml`:
+   - `nginx_geo_upstream: "http://<geo_private_ip>:8001"`
+   - `geo_server_internal_url: "http://<geo_private_ip>:8001"`
+4. **Deploy key** — copy `mateen_fastians` `.ssh` from an existing prod app host (backend-aws-prod):
+   ```bash
+   ssh ubuntu@<backend-ip> 'sudo tar cf - -C /home/mateen_fastians .ssh' | \
+   ssh ubuntu@<new-geo-ip> 'sudo mkdir -p /home/mateen_fastians && sudo tar xf - -C /home/mateen_fastians && sudo chown -R mateen_fastians:mateen_fastians /home/mateen_fastians/.ssh && sudo chmod 700 /home/mateen_fastians/.ssh && sudo chmod 600 /home/mateen_fastians/.ssh/id_ed25519'
+   ```
+5. **Secrets + provision GEO**:
+   ```bash
+   cd infra_ansible
+   bash ./scripts/sync-env-production.sh
+   ansible-playbook -i inventories/prod/hosts.ini playbooks/site-geo-apps.yml --limit geo-aws-prod
+   ./scripts/deploy geoserver main geo-aws-prod
+   ```
+6. **Refresh API host nginx** (private upstream changed):
+   ```bash
+   ansible-playbook -i inventories/prod/hosts.ini playbooks/site-backend-apps.yml --limit backend-aws-prod
+   ```
+7. **Verify** — `curl https://api.mek-lab.com/geo/docs`
+
+Do **not** scp `.env` from the old GEO VM — Ansible templates render `geoserver.env.j2` from vault (see **App env files** above).
+
+## LLM host replace / resize (e.g. `m7i.xlarge` → `t3.small`)
+
+Terraform `llm_instance_type` change **destroys and recreates** the LLM EC2. Follow this after `terraform apply -target=module.llm`:
+
+1. **Terraform** — `make output ENV=aws-app-production` → note `llm_public_ip`, `llm_private_ip`.
+2. **Inventory** — `hosts.ini` `llm-aws-prod` `ansible_host` = new public IP.
+3. **API nginx upstream** — `host_vars/backend-aws-prod.yml`:
+   - `nginx_llm_upstream: "http://<llm_private_ip>:8002"`
+   - `llm_server_internal_url: "http://<llm_private_ip>:8002"`
+4. **Deploy key** — copy `mateen_fastians` `.ssh` from `backend-aws-prod` (same tar pipe as GEO checklist).
+5. **Secrets + provision LLM**:
+   ```bash
+   cd infra_ansible
+   bash ./scripts/sync-env-production.sh
+   ansible-playbook -i inventories/prod/hosts.ini playbooks/site-llm-apps.yml --limit llm-aws-prod
+   ./scripts/deploy llmserver main llm-aws-prod
+   ```
+6. **Refresh API host nginx**:
+   ```bash
+   ansible-playbook -i inventories/prod/hosts.ini playbooks/site-backend-apps.yml --limit backend-aws-prod
+   ```
+7. **Verify** — `curl https://api.mek-lab.com/llm/docs`
+
+Do **not** scp `.env` from the old LLM VM — Ansible renders `llmserver.env.j2` from vault.
+
 ## New production host checklist
 
 After Terraform creates VMs (`infra_terraform/environments/aws-app-production`):
@@ -120,7 +174,7 @@ After Terraform creates VMs (`infra_terraform/environments/aws-app-production`):
    Or on host: `cd ~/.apps/MEK_LAB_BACKEND && ./db.sh upgrade && ./db.sh seed`.
 5. **DNS** — point `api.mek-lab.com` / `salome.mek-lab.com` to prod IPs; set `nginx_certbot_auto: true` in host_vars (see `backend-aws-prod.yml`, `salome-aws-prod.yml`).
 6. **HTTPS** — after Certbot, ensure nginx listens on 443: `sudo systemctl reload nginx` if browsers get `ERR_CONNECTION_REFUSED` on `https://`.
-7. **Frontend** — Vercel/build uses `VITE_BASE=https://api.mek-lab.com` (see `.worksystem/files/.env.frontend.prod`).
+7. **Frontend (simulation SPA)** — **S3 + CloudFront** at `mek-lab.com` + `www` (replaces Vercel). Terraform: `enable_frontend_cdn`, `frontend_hostnames = ["mek-lab.com", "www.mek-lab.com"]`. Cloudflare: CNAME `@` and `www` → CloudFront (no IP). Deploy: `./scripts/deploy-frontend production`. API stays `api.mek-lab.com`. See `docs/FRONTEND-AWS-CLOUDFLARE.md`.
 
 ### Login / seed (backend)
 
