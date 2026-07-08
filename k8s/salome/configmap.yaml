@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: salome-config
+  namespace: salome
+data:
+  ENV: "production"
+  PROJECT_ROOT: "/app"
+  SALOME_BIN: "/app/salome_wrapper.sh"
+  SALOME_SHELL_MODE: "direct"
+  SALOME_PYTHON: "python3"
+  SALOME_SIF: "/salome/salome.sif"
+  BUNDLE_DIR: "/bundles"
+  JOBS_DIR: "jobs"

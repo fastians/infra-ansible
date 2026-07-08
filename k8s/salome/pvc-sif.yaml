@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: salome-sif
+  namespace: salome
+spec:
+  accessModes:
+    - ReadOnlyMany     # All pods on all Karpenter nodes share the same SIF — no re-download
+  storageClassName: efs-salome
+  resources:
+    requests:
+      storage: 10Gi    # SIF is 5.6 GB; 10 Gi gives headroom for future versions

@@ -1,0 +1,70 @@
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: salome
+spec:
+  template:
+    metadata:
+      labels:
+        role: salome
+    spec:
+      # Only SALOME pods (those that tolerate this taint) land on these nodes.
+      taints:
+        - key: workload
+          value: salome
+          effect: NoSchedule
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: salome
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["on-demand"]
+        # SALOME is memory-bound (FEM solver). r7i family = memory-optimised, latest gen.
+        # r7i.8xlarge = 32 vCPU / 256 GiB. Allow xlarge variants so Karpenter picks cheapest available.
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values:
+            - r7i.4xlarge    # 16 vCPU / 128 GiB  — minimum viable
+            - r7i.8xlarge    # 32 vCPU / 256 GiB  — preferred (matches prod)
+            - r6i.8xlarge    # fallback if r7i unavailable in AZ
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]   # Apptainer .sif is amd64-only
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+  # Keep SALOME nodes running: consolidation would kill a node mid-job.
+  # Use WhenEmpty so Karpenter removes idle nodes but never interrupts active jobs.
+  disruption:
+    consolidationPolicy: WhenEmpty
+    consolidateAfter: 30m
+
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: salome
+spec:
+  amiFamily: AL2023
+  # Fill in your EKS cluster subnet IDs and security group IDs.
+  # These must match the cluster's node subnets / node SG.
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "mek-lab"   # tag your subnets with this
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "mek-lab"   # tag your node SG with this
+  instanceProfile: "KarpenterNodeInstanceProfile-mek-lab"
+
+  # 1 TB root volume — SALOME jobs and bundles need disk space.
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 1000Gi
+        volumeType: gp3
+        iops: 6000       # gp3 max burst — helps with large file I/O
+        throughput: 500  # MB/s
+        deleteOnTermination: true
+        encrypted: true

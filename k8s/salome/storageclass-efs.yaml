@@ -1,0 +1,14 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: efs-salome
+provisioner: efs.csi.aws.com
+# ReadOnlyMany and ReadWriteMany both work with EFS.
+# Retain so EFS data survives PVC deletion (SIF is expensive to re-download).
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+parameters:
+  # Replace with your EFS filesystem ID (e.g. fs-0abc1234).
+  # Created once via Terraform: aws_efs_file_system.salome
+  fileSystemId: "fs-REPLACEME"
+  directoryPerms: "755"

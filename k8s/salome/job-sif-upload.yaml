@@ -1,0 +1,69 @@
+# One-time Job: downloads the SALOME SIF into EFS so every pod can use it.
+# Run this ONCE after the EFS PVC is provisioned, before deploying salome-api.
+#
+#   kubectl apply -f k8s/job-sif-upload.yaml
+#   kubectl -n salome logs -f job/sif-upload
+#
+# The Job is idempotent: it skips the download if the SIF already exists and
+# is the correct size (5,626,949,632 bytes). Re-run safely after a failed download.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sif-upload
+  namespace: salome
+spec:
+  ttlSecondsAfterFinished: 86400   # clean up after 24 h
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: OnFailure
+      # Tolerate the salome taint so this Job lands on a Karpenter salome node
+      # (which has the EFS mount path and right AZ). Remove if you have a general node.
+      tolerations:
+        - key: workload
+          value: salome
+          effect: NoSchedule
+      volumes:
+        - name: sif-storage
+          persistentVolumeClaim:
+            claimName: salome-sif
+            readOnly: false   # need write access for initial upload
+      containers:
+        - name: downloader
+          image: curlimages/curl:8.6.0
+          command:
+            - sh
+            - -euc
+            - |
+              SIF=/salome/salome.sif
+              URL="https://code-aster.org/FICHIERS/singularity/salome_meca-lgpl-2024.1.0-1-20240327-scibian-11.sif"
+              EXPECTED=5626949632
+
+              current=0
+              [ -f "$SIF" ] && current=$(wc -c < "$SIF")
+
+              if [ "$current" -ge "$EXPECTED" ]; then
+                echo "SIF already complete ($current bytes). Nothing to do."
+                exit 0
+              fi
+
+              echo "Downloading SIF (resuming from $current bytes)..."
+              until curl -fL -C - -o "$SIF" "$URL"; do
+                echo "Disconnected. Retrying in 10s..."
+                sleep 10
+              done
+
+              actual=$(wc -c < "$SIF")
+              if [ "$actual" -lt "$EXPECTED" ]; then
+                echo "ERROR: Downloaded $actual bytes, expected $EXPECTED. Incomplete."
+                exit 1
+              fi
+              echo "SIF complete ($actual bytes)."
+          volumeMounts:
+            - name: sif-storage
+              mountPath: /salome
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi

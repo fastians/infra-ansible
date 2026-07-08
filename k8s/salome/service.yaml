@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: salome
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: salome-api
+  namespace: salome
+spec:
+  selector:
+    app: salome-api
+  ports:
+    - port: 8000        # cluster-internal port (matches other services: GEO=8001, LLM=8002, etc.)
+      targetPort: 40010 # container port
+  type: ClusterIP       # internal only; expose via Ingress / ALB Ingress Controller externally

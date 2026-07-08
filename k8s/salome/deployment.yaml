@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: salome-api
+  namespace: salome
+  labels:
+    app: salome-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: salome-api
+  template:
+    metadata:
+      labels:
+        app: salome-api
+        role: salome
+    spec:
+      # Land only on Karpenter salome nodes (r7i, 1 TB disk, tainted).
+      tolerations:
+        - key: workload
+          value: salome
+          effect: NoSchedule
+      nodeSelector:
+        role: salome
+
+      # Validate SIF is complete before starting the main container.
+      initContainers:
+        - name: sif-check
+          image: busybox:1.36
+          command:
+            - sh
+            - -euc
+            - |
+              SIF=/salome/salome.sif
+              EXPECTED=5626949632
+              if [ ! -f "$SIF" ]; then
+                echo "ERROR: SIF not found at $SIF. Run job-sif-upload.yaml first."
+                exit 1
+              fi
+              actual=$(wc -c < "$SIF")
+              if [ "$actual" -lt "$EXPECTED" ]; then
+                echo "ERROR: SIF incomplete ($actual / $EXPECTED bytes). Run job-sif-upload.yaml."
+                exit 1
+              fi
+              echo "SIF OK ($actual bytes)."
+          volumeMounts:
+            - name: sif-storage
+              mountPath: /salome
+              readOnly: true
+
+      containers:
+        - name: salome-api
+          image: YOUR_ECR_REGISTRY/mek-lab/salome-api:latest
+          ports:
+            - containerPort: 40010
+          envFrom:
+            - configMapRef:
+                name: salome-config
+          # Apptainer needs privileged to mount squashfs (SIF).
+          # Restrict to only the required capabilities if your cluster policy allows.
+          securityContext:
+            privileged: true
+
+          volumeMounts:
+            - name: sif-storage
+              mountPath: /salome
+              readOnly: true
+            - name: jobs-storage
+              mountPath: /app/jobs
+            - name: bundles-storage
+              mountPath: /bundles
+
+          resources:
+            requests:
+              cpu: "8"
+              memory: "32Gi"
+            limits:
+              cpu: "28"        # leave 4 vCPU headroom for OS/kubelet on r7i.8xlarge
+              memory: "240Gi"  # leave ~16 GiB headroom
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 40010
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 40010
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+
+      volumes:
+        - name: sif-storage
+          persistentVolumeClaim:
+            claimName: salome-sif
+            readOnly: true
+        - name: jobs-storage
+          persistentVolumeClaim:
+            claimName: salome-jobs
+        - name: bundles-storage
+          persistentVolumeClaim:
+            claimName: salome-bundles
