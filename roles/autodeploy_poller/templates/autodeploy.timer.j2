@@ -1,0 +1,11 @@
+[Unit]
+Description=Poll {{ item.app_systemd_name }} for new commits on {{ autodeploy_branch }} every {{ autodeploy_check_interval }}
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec={{ autodeploy_check_interval }}
+RandomizedDelaySec=15
+Persistent=true
+
+[Install]
+WantedBy=timers.target

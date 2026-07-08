@@ -1,0 +1,7 @@
+[Unit]
+Description=Auto-deploy poller for {{ item.app_systemd_name }} (branch {{ autodeploy_branch }})
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/{{ app_user }}/.deploy/autodeploy-{{ item.app_systemd_name }}.sh

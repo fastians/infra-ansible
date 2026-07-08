@@ -1,0 +1,31 @@
+---
+# Opt-in auto-deploy poller for staging ONLY. Do not add production hosts here —
+# unattended auto-deploy is an intentional staging-only trade-off (see
+# docs/DEPLOYMENT.md).
+#
+# Two separate staging VMs, same watched branch (staging):
+#   - backend-aws-staging: backend + geo + llm (all-in-one host)
+#   - salome-aws-staging:  salomeserver (separate host)
+#
+# Usage:
+#   ansible-playbook -i inventories/prod/hosts.ini playbooks/site-autodeploy.yml --limit backend-aws-staging
+#   ansible-playbook -i inventories/prod/hosts.ini playbooks/site-autodeploy.yml --limit salome-aws-staging
+#   ansible-playbook -i inventories/prod/hosts.ini playbooks/site-autodeploy.yml   # both
+#
+# To disable later (per app), on the host:
+#   sudo systemctl disable --now autodeploy-backendserver.timer autodeploy-geoserver.timer autodeploy-llmserver.timer
+#   sudo systemctl disable --now autodeploy-salomeserver.timer   # on salome-aws-staging
+
+- hosts: backend-aws-staging
+  vars:
+    autodeploy_branch: staging
+    autodeploy_apps: "{{ python_apps }}"
+  roles:
+    - autodeploy_poller
+
+- hosts: salome-aws-staging
+  vars:
+    autodeploy_branch: staging
+    autodeploy_apps: "{{ python_apps }}"
+  roles:
+    - autodeploy_poller

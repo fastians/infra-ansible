@@ -1,0 +1,15 @@
+---
+# Linux account that owns the app checkouts (matches roles/python_app default).
+# Set explicitly here — this role is applied standalone (site-autodeploy.yml
+# doesn't include python_app), so it can't rely on that role's default loading.
+app_user: mateen_fastians
+
+# Branch watched for new commits.
+autodeploy_branch: staging
+
+# systemd timer OnUnitActiveSec value (how often to poll).
+autodeploy_check_interval: 2min
+
+# List of apps to watch — normally just pass the host's python_apps list.
+# Each item needs: name, app_systemd_name, app_base_dir, port
+autodeploy_apps: []

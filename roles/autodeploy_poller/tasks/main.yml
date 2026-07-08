@@ -1,0 +1,70 @@
+---
+# Opt-in auto-deploy poller: one systemd timer + oneshot service per app in
+# autodeploy_apps, watching autodeploy_branch. Only deploys/restarts when
+# origin/<branch> has actually moved (see templates/autodeploy-check.sh.j2).
+
+- name: Ensure ~/.deploy exists
+  file:
+    path: "/home/{{ app_user }}/.deploy"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0750'
+  become: yes
+
+- name: Sync per-service deploy script (git pull + deps; does not restart)
+  copy:
+    src: "{{ playbook_dir }}/../deployment_scripts/{{ item.app_systemd_name }}.sh"
+    dest: "/home/{{ app_user }}/.deploy/{{ item.app_systemd_name }}.sh"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0750'
+  become: yes
+  loop: "{{ autodeploy_apps }}"
+  loop_control:
+    label: "{{ item.app_systemd_name }}"
+
+- name: Render autodeploy check-and-deploy script
+  template:
+    src: autodeploy-check.sh.j2
+    dest: "/home/{{ app_user }}/.deploy/autodeploy-{{ item.app_systemd_name }}.sh"
+    owner: root
+    group: root
+    mode: '0750'
+  become: yes
+  loop: "{{ autodeploy_apps }}"
+  loop_control:
+    label: "{{ item.app_systemd_name }}"
+
+- name: Install autodeploy systemd service
+  template:
+    src: autodeploy.service.j2
+    dest: "/etc/systemd/system/autodeploy-{{ item.app_systemd_name }}.service"
+  become: yes
+  loop: "{{ autodeploy_apps }}"
+  loop_control:
+    label: "{{ item.app_systemd_name }}"
+
+- name: Install autodeploy systemd timer
+  template:
+    src: autodeploy.timer.j2
+    dest: "/etc/systemd/system/autodeploy-{{ item.app_systemd_name }}.timer"
+  become: yes
+  loop: "{{ autodeploy_apps }}"
+  loop_control:
+    label: "{{ item.app_systemd_name }}"
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+  become: yes
+
+- name: Enable + start autodeploy timers
+  systemd:
+    name: "autodeploy-{{ item.app_systemd_name }}.timer"
+    state: started
+    enabled: yes
+  become: yes
+  loop: "{{ autodeploy_apps }}"
+  loop_control:
+    label: "{{ item.app_systemd_name }}"
