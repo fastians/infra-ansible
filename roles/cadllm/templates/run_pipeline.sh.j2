@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Managed by Ansible (roles/cadllm).
+# End-to-end batch run of the CAD_generation / FlexCAD pipeline:
+#   1. sample.py     (LLM venv, GPU)  -> conditional_samples_*.json
+#   2. parser.py     (conda geo env)  -> per-sample .obj
+#   3. visual_obj.py (conda geo env)  -> .stl / .step
+#
+# Usage:
+#   ./run_pipeline.sh <num_samples> <mask_type> [out_dir]
+# Example:
+#   ./run_pipeline.sh 5 unconditional output
+set -euo pipefail
+
+APP_DIR="{{ cadllm_base_dir }}/{{ cadllm_app_name }}"
+LLM_PY="{{ cadllm_llm_venv_dir }}/bin/python3"
+GEO_PY="{{ cadllm_conda_install_dir }}/envs/{{ cadllm_conda_env_name }}/bin/python3"
+MODEL_NAME="{{ cadllm_model_name }}"
+MODEL_PATH="{{ cadllm_model_path }}"
+
+NUM_SAMPLES="${1:-1}"
+MASK_TYPE="${2:-unconditional}"
+OUT_DIR="${3:-output}"
+
+cd "$APP_DIR"
+# Load HF_TOKEN etc.
+set -a; [ -f .env ] && . ./.env; set +a
+
+echo "[1/3] Generating $NUM_SAMPLES sample(s) (mask=$MASK_TYPE) on GPU..."
+"$LLM_PY" sample.py \
+  --model_name "$MODEL_NAME" \
+  --model_path "$MODEL_PATH" \
+  --num_samples "$NUM_SAMPLES" \
+  --mask_type "$MASK_TYPE"
+
+# sample.py writes <dirname(model_path)>conditional_samples_<n>_<mask>_mask.json
+GEN_JSON="$(ls -t ${MODEL_PATH%/}*conditional_samples_${NUM_SAMPLES}_${MASK_TYPE}_mask.json conditional_samples_${NUM_SAMPLES}_${MASK_TYPE}_mask.json 2>/dev/null | head -n1 || true)"
+if [ -z "${GEN_JSON:-}" ]; then
+  echo "ERROR: could not locate generated samples JSON" >&2
+  exit 1
+fi
+echo "      generated: $GEN_JSON"
+
+echo "[2/3] Parsing CAD strings to .obj..."
+"$GEO_PY" utils/parser.py --in_path "$GEN_JSON" --out_path "$OUT_DIR"
+
+echo "[3/3] Converting .obj to .stl / .step (180s timeout guard)..."
+timeout 180 "$GEO_PY" utils/visual_obj.py --data_folder "$OUT_DIR" || \
+  echo "WARN: visual_obj.py hit the timeout/occ guard for some solids (expected on invalid geometry)."
+
+echo "Done. Output under: $APP_DIR/$OUT_DIR"

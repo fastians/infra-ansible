@@ -1,0 +1,9 @@
+---
+# Scoped playbook: re-render ONLY the backend host nginx vhost (adds /cad/ route)
+# without redeploying the backend application. Uses the same host_vars
+# (nginx_cadllm_upstream) as the full backend playbook.
+- name: Backend nginx only (add /cad/ route)
+  hosts: backend_production
+  become: yes
+  roles:
+    - nginx

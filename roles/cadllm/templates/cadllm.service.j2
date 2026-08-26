@@ -1,0 +1,21 @@
+# Managed by Ansible (roles/cadllm). Installed when cadllm_enable_service=true (default).
+# Always-on FastAPI wrapper (api:app) around the FlexCAD pipeline. Runs generation in
+# this venv (GPU) and shells out to the conda python for the pythonocc geometry step.
+[Unit]
+Description=CAD_generation / FlexCAD GPU service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ cadllm_user }}
+WorkingDirectory={{ cadllm_base_dir }}/{{ cadllm_app_name }}
+EnvironmentFile={{ cadllm_base_dir }}/{{ cadllm_app_name }}/.env
+# Model load can take a while on first start; give it a generous startup window.
+TimeoutStartSec=600
+ExecStart={{ cadllm_llm_venv_dir }}/bin/python3 -m uvicorn api:app --host 0.0.0.0 --port {{ cadllm_service_port }}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

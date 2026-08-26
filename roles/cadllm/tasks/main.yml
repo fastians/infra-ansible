@@ -1,0 +1,309 @@
+---
+# cadllm role — deploy CAD_generation / FlexCAD onto a GPU (CUDA) host.
+# Two runtime environments on one box:
+#   1. conda env (pythonocc-core) for the geometry half (parser -> STL/STEP)
+#   2. pip venv (CUDA torch + transformers + peft + bitsandbytes) for the LLM half
+
+# ---------------------------------------------------------------------------
+# 0. GPU sanity / optional driver install
+# ---------------------------------------------------------------------------
+- name: Check for NVIDIA GPU (nvidia-smi)
+  command: nvidia-smi -L
+  register: cadllm_nvidia_smi
+  changed_when: false
+  failed_when: false
+  become: yes
+
+- name: Install NVIDIA driver (only on non-DL AMIs; heavy, may need reboot)
+  apt:
+    name:
+      - nvidia-driver-535
+      - nvidia-utils-535
+    state: present
+    update_cache: yes
+  become: yes
+  when:
+    - cadllm_install_nvidia_driver | bool
+    - cadllm_nvidia_smi.rc != 0
+
+- name: Fail early if GPU is required but not visible
+  fail:
+    msg: >-
+      nvidia-smi did not report a GPU on this host. This role targets a CUDA
+      instance (e.g. g4dn.xlarge). Launch from the AWS Deep Learning GPU AMI, or
+      set cadllm_install_nvidia_driver=true, or cadllm_require_gpu=false to skip.
+  when:
+    - cadllm_require_gpu | bool
+    - cadllm_nvidia_smi.rc != 0
+    - not (cadllm_install_nvidia_driver | bool)
+
+# ---------------------------------------------------------------------------
+# 1. System deps + app user + repo
+# ---------------------------------------------------------------------------
+- name: Install system dependencies
+  apt:
+    name:
+      - acl
+      - git
+      - build-essential
+      - "{{ cadllm_llm_python }}"
+      - "{{ cadllm_llm_python }}-venv"
+      - "{{ cadllm_llm_python }}-dev"
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Create application user
+  user:
+    name: "{{ cadllm_user }}"
+    shell: /bin/bash
+    create_home: yes
+  become: yes
+
+- name: Create application directory
+  file:
+    path: "{{ cadllm_base_dir }}/{{ cadllm_app_name }}"
+    state: directory
+    owner: "{{ cadllm_user }}"
+    group: "{{ cadllm_user }}"
+    mode: "0755"
+  become: yes
+
+- name: Check if repository already exists
+  stat:
+    path: "{{ cadllm_base_dir }}/{{ cadllm_app_name }}/.git"
+  register: cadllm_repo_exists
+  become: yes
+  become_user: "{{ cadllm_user }}"
+
+- name: Clone CAD_generation repository
+  git:
+    repo: "{{ cadllm_repo_url }}"
+    dest: "{{ cadllm_base_dir }}/{{ cadllm_app_name }}"
+    version: "{{ cadllm_branch }}"
+    force: no
+  environment:
+    GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"
+  become: yes
+  become_user: "{{ cadllm_user }}"
+  when:
+    - not cadllm_repo_exists.stat.exists
+    - not (cadllm_skip_git_sync | default(false) | bool)
+  async: 600
+  poll: 10
+
+- name: Update CAD_generation repository
+  shell: |
+    cd {{ cadllm_base_dir }}/{{ cadllm_app_name }}
+    git fetch origin
+    git checkout {{ cadllm_branch }}
+    git pull origin {{ cadllm_branch }}
+  environment:
+    GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"
+  become: yes
+  become_user: "{{ cadllm_user }}"
+  when: cadllm_repo_exists.stat.exists
+  register: cadllm_git_update
+  changed_when: "'Already up to date' not in cadllm_git_update.stdout"
+
+- name: Create output directory for generated CAD (obj/stl/step)
+  file:
+    path: "{{ cadllm_base_dir }}/{{ cadllm_app_name }}/output"
+    state: directory
+    owner: "{{ cadllm_user }}"
+    group: "{{ cadllm_user }}"
+    mode: "0755"
+  become: yes
+
+# ---------------------------------------------------------------------------
+# 2. Conda env for the geometry half (pythonocc-core, NO FreeCAD)
+#    FlexCAD geometry only needs OpenCASCADE. freecad=1.0.0 pins OCC 7.8.1 which
+#    conflicts with pythonocc-core=7.7.2, so we create a dedicated pythonocc-only
+#    env here rather than reusing the shared conda role's FreeCAD-bundled create.
+# ---------------------------------------------------------------------------
+- name: Check if Miniconda is installed
+  stat:
+    path: "{{ cadllm_conda_install_dir }}/bin/conda"
+  register: cadllm_conda_bin
+  become: yes
+
+- name: Download Miniconda installer
+  get_url:
+    url: "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+    dest: /tmp/miniconda_installer.sh
+    mode: "0755"
+    timeout: 120
+  become: yes
+  when: not cadllm_conda_bin.stat.exists
+
+- name: Install Miniconda (silent)
+  shell: runuser -u {{ cadllm_user }} -- bash /tmp/miniconda_installer.sh -b -p "{{ cadllm_conda_install_dir }}"
+  args:
+    creates: "{{ cadllm_conda_install_dir }}/bin/conda"
+  become: yes
+  when: not cadllm_conda_bin.stat.exists
+
+- name: Configure conda to use conda-forge only (no Anaconda default channels / ToS)
+  copy:
+    dest: "/home/{{ cadllm_user }}/.condarc"
+    content: |
+      channels:
+        - conda-forge
+      default_channels: []
+      channel_priority: strict
+    owner: "{{ cadllm_user }}"
+    group: "{{ cadllm_user }}"
+    mode: "0644"
+  become: yes
+
+- name: Check if geometry conda env exists
+  stat:
+    path: "{{ cadllm_conda_install_dir }}/envs/{{ cadllm_conda_env_name }}"
+  register: cadllm_conda_env
+  become: yes
+
+- name: Create pythonocc-only conda env for the geometry half
+  shell: >
+    runuser -u {{ cadllm_user }} -- env
+    HOME=/home/{{ cadllm_user }} USER={{ cadllm_user }} LOGNAME={{ cadllm_user }}
+    {{ cadllm_conda_install_dir }}/bin/conda create
+    -n "{{ cadllm_conda_env_name }}"
+    --override-channels -c conda-forge
+    python={{ cadllm_conda_python_version }}
+    pip
+    pythonocc-core={{ cadllm_conda_occ_version }}
+    numpy tqdm
+    -y
+  args:
+    chdir: "/home/{{ cadllm_user }}"
+  become: yes
+  when: not cadllm_conda_env.stat.exists
+  async: 3600
+  poll: 30
+
+- name: Ensure geometry conda env has numpy/tqdm (parser.py + visual_obj.py)
+  shell: >
+    runuser -u {{ cadllm_user }} -- env
+    HOME=/home/{{ cadllm_user }}
+    {{ cadllm_conda_install_dir }}/envs/{{ cadllm_conda_env_name }}/bin/pip
+    install numpy tqdm
+  args:
+    chdir: "/home/{{ cadllm_user }}"
+  become: yes
+  register: cadllm_geo_pip
+  changed_when: "'already satisfied' not in cadllm_geo_pip.stdout | lower"
+
+# ---------------------------------------------------------------------------
+# 3. Pip venv for the LLM half (CUDA torch + transformers + peft + bitsandbytes)
+# ---------------------------------------------------------------------------
+- name: Create LLM virtual environment
+  command: "{{ cadllm_llm_python }} -m venv {{ cadllm_llm_venv_dir }}"
+  args:
+    creates: "{{ cadllm_llm_venv_dir }}/bin/python"
+  become: yes
+  become_user: "{{ cadllm_user }}"
+
+- name: Upgrade pip in LLM venv
+  pip:
+    name: pip
+    state: latest
+    virtualenv: "{{ cadllm_llm_venv_dir }}"
+  become: yes
+  become_user: "{{ cadllm_user }}"
+
+- name: Install CUDA-enabled torch stack in LLM venv
+  pip:
+    name:
+      - "torch==2.2.1"
+      - "torchvision==0.17.1"
+      - "torchaudio==2.2.1"
+    virtualenv: "{{ cadllm_llm_venv_dir }}"
+    extra_args: "--index-url {{ cadllm_torch_index_url }}"
+  become: yes
+  become_user: "{{ cadllm_user }}"
+
+- name: Install repo requirements in LLM venv (transformers/peft/bitsandbytes/etc.)
+  pip:
+    requirements: "{{ cadllm_base_dir }}/{{ cadllm_app_name }}/{{ cadllm_requirements_path }}"
+    virtualenv: "{{ cadllm_llm_venv_dir }}"
+  become: yes
+  become_user: "{{ cadllm_user }}"
+
+- name: Check for API requirements file (FastAPI service wrapper)
+  stat:
+    path: "{{ cadllm_base_dir }}/{{ cadllm_app_name }}/{{ cadllm_api_requirements_path }}"
+  register: cadllm_api_reqs
+  become: yes
+
+- name: Install API service requirements in LLM venv (fastapi/uvicorn)
+  pip:
+    requirements: "{{ cadllm_base_dir }}/{{ cadllm_app_name }}/{{ cadllm_api_requirements_path }}"
+    virtualenv: "{{ cadllm_llm_venv_dir }}"
+  become: yes
+  become_user: "{{ cadllm_user }}"
+  when: cadllm_api_reqs.stat.exists
+
+- name: Install fastapi/uvicorn directly if repo ships no requirements-api.txt
+  pip:
+    name:
+      - "fastapi"
+      - "uvicorn[standard]"
+    virtualenv: "{{ cadllm_llm_venv_dir }}"
+  become: yes
+  become_user: "{{ cadllm_user }}"
+  when:
+    - cadllm_enable_service | bool
+    - not cadllm_api_reqs.stat.exists
+
+# ---------------------------------------------------------------------------
+# 4. Secrets + environment file (HF token for gated Llama weights)
+# ---------------------------------------------------------------------------
+- name: Ensure HuggingFace cache dir exists
+  file:
+    path: "{{ cadllm_hf_home }}"
+    state: directory
+    owner: "{{ cadllm_user }}"
+    group: "{{ cadllm_user }}"
+    mode: "0700"
+  become: yes
+
+- name: Write cadllm environment file
+  template:
+    src: cadllm.env.j2
+    dest: "{{ cadllm_base_dir }}/{{ cadllm_app_name }}/.env"
+    owner: "{{ cadllm_user }}"
+    group: "{{ cadllm_user }}"
+    mode: "0600"
+  become: yes
+
+# ---------------------------------------------------------------------------
+# 5. Helper run script (batch: generate -> parse -> STL/STEP)
+# ---------------------------------------------------------------------------
+- name: Install run_pipeline helper script
+  template:
+    src: run_pipeline.sh.j2
+    dest: "{{ cadllm_base_dir }}/{{ cadllm_app_name }}/run_pipeline.sh"
+    owner: "{{ cadllm_user }}"
+    group: "{{ cadllm_user }}"
+    mode: "0755"
+  become: yes
+
+# ---------------------------------------------------------------------------
+# 6. Optional always-on systemd service (only when cadllm_enable_service=true)
+# ---------------------------------------------------------------------------
+- name: Install systemd unit for cadllm service
+  template:
+    src: cadllm.service.j2
+    dest: /etc/systemd/system/cadllm.service
+  become: yes
+  when: cadllm_enable_service | bool
+  notify: Restart cadllm
+
+- name: Enable and start cadllm service
+  systemd:
+    name: cadllm
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: yes
+  when: cadllm_enable_service | bool

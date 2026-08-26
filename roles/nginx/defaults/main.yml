@@ -24,5 +24,11 @@ nginx_extra_server_names: []
 nginx_geo_upstream: "http://127.0.0.1:8001"
 nginx_llm_upstream: "http://127.0.0.1:8002"
 
+# CAD_generation / FlexCAD GPU service. Runs on a dedicated GPU host (cadllm-aws-prod),
+# never localhost — set to its private VPC IP on the backend host, e.g.:
+#   nginx_cadllm_upstream: "http://10.2.2.NN:8003"
+# Empty string disables the /cad/ route (default: no CAD host present).
+nginx_cadllm_upstream: ""
+
 # Deploy conf.d/gzip-meklab.conf (JSON/GLTF compression on API nginx).
 nginx_gzip_enabled: true

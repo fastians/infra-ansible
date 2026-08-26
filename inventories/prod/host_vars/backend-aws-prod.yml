@@ -14,6 +14,8 @@ nginx_geo_upstream: "http://10.2.2.171:8001"
 nginx_llm_upstream: "http://10.2.2.191:8002"
 geo_server_internal_url: "http://10.2.2.171:8001"
 llm_server_internal_url: "http://10.2.2.191:8002"
+# CAD_generation / FlexCAD GPU host (cadllm-aws-prod, i-0f0806dddc9944417).
+nginx_cadllm_upstream: "http://10.2.2.32:8003"
 
 nginx_server_name: "{{ api_public_host }}"
 nginx_bind_http_to_inventory_ip: true

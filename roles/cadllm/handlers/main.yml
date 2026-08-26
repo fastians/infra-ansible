@@ -1,0 +1,8 @@
+---
+- name: Restart cadllm
+  systemd:
+    name: cadllm
+    state: restarted
+    daemon_reload: yes
+  become: yes
+  when: cadllm_enable_service | bool

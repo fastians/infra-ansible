@@ -8,3 +8,4 @@
 - import_playbook: playbooks/site-geo-apps.yml
 - import_playbook: playbooks/site-salome-apps.yml
 - import_playbook: playbooks/site-llm-apps.yml
+- import_playbook: playbooks/site-cadllm-apps.yml

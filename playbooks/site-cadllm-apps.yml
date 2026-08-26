@@ -1,0 +1,29 @@
+---
+# CAD_generation / FlexCAD on the dedicated GPU (CUDA) host.
+# Targets the [cadllm] group (cadllm-aws-prod). The host is created by Terraform
+# (aws-app-production, enable_cadllm=true) from the AWS Deep Learning GPU AMI.
+#
+# Sensitive vars (cadllm_hf_token, cadllm_repo_url) should come from extra_vars /
+# vault, e.g.:
+#   ansible-playbook playbooks/site-cadllm-apps.yml \
+#     -e cadllm_repo_url=git@github.com:<org>/CAD_generation.git \
+#     -e @secrets.yml            # contains cadllm_hf_token
+- name: CAD_generation / FlexCAD (GPU host)
+  hosts: cadllm
+  become: yes
+  pre_tasks:
+    - name: Ensure application user exists
+      user:
+        name: "{{ cadllm_user | default('mateen_fastians') }}"
+        shell: /bin/bash
+        create_home: yes
+      become: yes
+
+  tasks:
+    # Deploy CAD_generation. The cadllm role installs Miniconda (if missing) and
+    # creates a pythonocc-only conda env for the geometry half (NO FreeCAD — FlexCAD
+    # geometry only needs OpenCASCADE, and freecad=1.0.0 conflicts with
+    # pythonocc-core=7.7.2 on OCC version), plus the CUDA LLM venv and the API service.
+    - name: Deploy CAD_generation (conda pythonocc env + LLM venv + repo + service)
+      include_role:
+        name: cadllm

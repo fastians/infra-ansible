@@ -68,6 +68,24 @@ upstream mek_geo_backend {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+{% if nginx_cadllm_upstream | default('') | length > 0 %}
+    # =========================
+    # CAD_generation / FlexCAD (8003) — dedicated GPU host (remote upstream only)
+    # Generation is slow (LLM + OCC geometry); use long timeouts.
+    # =========================
+    location /cad/ {
+        proxy_pass {{ nginx_cadllm_upstream }}/;
+        proxy_connect_timeout 900s;
+        proxy_send_timeout    900s;
+        proxy_read_timeout    900s;
+        send_timeout          900s;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+{% endif %}
+
     # =========================
     # MONITORING - Prometheus (9090)
     # =========================

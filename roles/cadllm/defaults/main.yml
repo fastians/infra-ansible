@@ -1,0 +1,56 @@
+---
+# Defaults for the cadllm role (CAD_generation / FlexCAD on a GPU/CUDA host).
+#
+# The host is launched from the AWS Deep Learning GPU AMI (Ubuntu 22.04), so the
+# NVIDIA driver + CUDA toolkit are already present. This role therefore does NOT
+# install a driver by default; it verifies the GPU is visible, sets up the two
+# runtime environments (conda for pythonocc geometry, a pip venv for the LLM), and
+# deploys the repo.
+
+cadllm_user: mateen_fastians
+cadllm_base_dir: "/home/{{ cadllm_user }}/apps"
+cadllm_app_name: CAD_generation
+# Repo URL comes from the same vault mechanism as the other servers
+# (vault_*_repo_url in group_vars/all/secrets.yml). Falls back to the public
+# HTTPS URL if the vault var is not defined.
+cadllm_repo_url: "{{ meklab_cadllm_repo_url | default(vault_meklab_cadllm_repo_url | default('https://github.com/mek-lab/CAD_generation.git')) }}"
+cadllm_branch: main
+
+# --- GPU / driver ---
+# The DL AMI ships the driver. Set true only if deploying onto a plain Ubuntu AMI
+# that has no NVIDIA driver (this triggers a heavier apt driver install + reboot).
+cadllm_install_nvidia_driver: false
+cadllm_require_gpu: true          # fail early if nvidia-smi is missing when true
+
+# --- Conda env (pythonocc geometry half: parser.py -> visual_obj.py -> STL/STEP) ---
+cadllm_conda_install_dir: "/home/{{ cadllm_user }}/miniconda3"
+cadllm_conda_env_name: cadllm_geo
+cadllm_conda_python_version: "3.10"
+cadllm_conda_occ_version: "7.7.2"   # matches repo environments.yaml (pythonocc-core 7.7.2)
+
+# --- LLM env (torch + transformers + peft + bitsandbytes) ---
+# Kept separate from the conda geometry env to avoid CUDA/torch vs OCC conflicts.
+cadllm_llm_venv_dir: "/home/{{ cadllm_user }}/apps/{{ cadllm_app_name }}/.venv"
+cadllm_llm_python: "python3.10"
+# CUDA wheel index for torch. cu121 matches recent DL AMIs; override if the AMI's
+# CUDA differs (check `nvidia-smi` / `nvcc --version` on the host).
+cadllm_torch_index_url: "https://download.pytorch.org/whl/cu121"
+cadllm_requirements_path: "requirements.txt"
+# Extra deps for the FastAPI service wrapper (api.py). Installed into the LLM venv.
+cadllm_api_requirements_path: "requirements-api.txt"
+
+# --- HuggingFace access (Llama base weights are gated) ---
+# Sourced from vault (vault_cadllm_hf_token) like other secrets; never commit a real token.
+cadllm_hf_token: "{{ vault_cadllm_hf_token | default('') }}"
+cadllm_hf_home: "/home/{{ cadllm_user }}/.cache/huggingface"
+
+# --- Model / inference defaults (used by the helper run script) ---
+cadllm_model_name: "7b"            # Llama-2-7b in 8-bit fits a T4 (g4dn). Use "8B" only on g5+.
+cadllm_model_path: "fine_tuned"    # LoRA adapter dir shipped in the repo
+cadllm_service_port: 8003
+
+# When true (default), install a systemd unit that runs the always-on FastAPI
+# wrapper (api.py) on cadllm_service_port. The API keeps the model resident and
+# shells out to the conda python for the geometry step.
+# Set false for pure on-demand batch use (run_pipeline.sh) to save GPU cost.
+cadllm_enable_service: true

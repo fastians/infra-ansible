@@ -17,3 +17,5 @@ mek_lab_backend_repo_url: "{{ vault_mek_lab_backend_repo_url }}"
 geoserver_repo_url: "{{ vault_geoserver_repo_url }}"
 meklab_llm_repo_url: "{{ vault_meklab_llm_repo_url }}"
 salome_repo_url: "{{ vault_salome_repo_url }}"
+# CAD_generation / FlexCAD (GPU host). Public HTTPS fallback if vault var unset.
+meklab_cadllm_repo_url: "{{ vault_meklab_cadllm_repo_url | default('https://github.com/mek-lab/CAD_generation.git') }}"
