@@ -30,5 +30,11 @@ nginx_llm_upstream: "http://127.0.0.1:8002"
 # Empty string disables the /cad/ route (default: no CAD host present).
 nginx_cadllm_upstream: ""
 
+# CAD_gen / FlexCAD editing service (port 8004 on the same GPU host).
+# Set to its private VPC IP on the backend host, e.g.:
+#   nginx_cadgen_upstream: "http://10.2.2.NN:8004"
+# Empty string disables the /cad-gen/ route.
+nginx_cadgen_upstream: ""
+
 # Deploy conf.d/gzip-meklab.conf (JSON/GLTF compression on API nginx).
 nginx_gzip_enabled: true
