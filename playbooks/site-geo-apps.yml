@@ -9,6 +9,23 @@
         if (deploy_filter_systemd | default('') == '')
         else (python_apps | selectattr('app_systemd_name', 'equalto', deploy_filter_systemd) | list)
       }}
+    # Self-healing watchdog for geoserver (single-worker; a wedged request needs
+    # more than systemd's Restart=always, which only fires on process exit).
+    # Override any of these with -e geo_watchdog_enabled=false etc. if needed.
+    geo_watchdog_enabled: true
+    geo_watchdog_port: 8001
+    # Widened from 60s/15s: advanced-defeaturing's per-face fallback now isolates each
+    # BRepAlgoAPI_Defeaturing.Build() in its own subprocess with a bounded timeout (see
+    # element_extraction/remove_features.py), but the detection/matching/retry logic
+    # around each isolated call is still synchronous OCC work in the parent thread — on
+    # a file needing many one-at-a-time fallback attempts back-to-back, that can still
+    # starve /health for longer than 15s even though nothing is actually hung. 90s/45s
+    # stays far tighter than the original bug (a genuine hang froze the process for
+    # 13+ hours) while tolerating a normal busy stretch instead of false-positive
+    # restarting mid-request and wiping every session.
+    geo_watchdog_interval_seconds: 90
+    geo_watchdog_timeout_seconds: 45
+    geo_watchdog_script_path: "/home/mateen_fastians/.deploy/geoserver-watchdog.sh"
   pre_tasks:
     - name: Ensure application user exists
       user:
@@ -96,3 +113,65 @@
         chdir: "/home/mateen_fastians"
       become: yes
       loop: "{{ _python_apps_target | selectattr('app_use_conda', 'defined') | selectattr('app_use_conda', 'equalto', true) | list }}"
+
+    - name: Ensure .deploy directory exists
+      file:
+        path: /home/mateen_fastians/.deploy
+        state: directory
+        owner: mateen_fastians
+        group: mateen_fastians
+        mode: "0750"
+      become: yes
+      when: geo_watchdog_enabled | bool
+
+    - name: Deploy geoserver watchdog script
+      template:
+        src: "{{ playbook_dir }}/templates/geoserver-watchdog.sh.j2"
+        dest: "{{ geo_watchdog_script_path }}"
+        owner: root
+        group: root
+        mode: "0750"
+      become: yes
+      when: geo_watchdog_enabled | bool
+
+    - name: Deploy geoserver-watchdog systemd service
+      template:
+        src: "{{ playbook_dir }}/templates/geoserver-watchdog.service.j2"
+        dest: /etc/systemd/system/geoserver-watchdog.service
+      become: yes
+      when: geo_watchdog_enabled | bool
+      register: geo_watchdog_service_file
+
+    - name: Deploy geoserver-watchdog systemd timer
+      template:
+        src: "{{ playbook_dir }}/templates/geoserver-watchdog.timer.j2"
+        dest: /etc/systemd/system/geoserver-watchdog.timer
+      become: yes
+      when: geo_watchdog_enabled | bool
+      register: geo_watchdog_timer_file
+
+    - name: Start and enable geoserver-watchdog timer
+      systemd:
+        name: geoserver-watchdog.timer
+        state: >-
+          {{ 'restarted' if (geo_watchdog_service_file.changed or geo_watchdog_timer_file.changed) else 'started' }}
+        enabled: yes
+        daemon_reload: yes
+      become: yes
+      when: geo_watchdog_enabled | bool
+      # In --check mode the unit files above are only simulated, not actually written,
+      # so systemd genuinely can't find a brand-new timer yet — expected in dry-run,
+      # not a sign of a real problem. A real run still fails loudly if this breaks.
+      ignore_errors: "{{ ansible_check_mode }}"
+
+    - name: Remove geoserver-watchdog timer/service when disabled
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      loop:
+        - geoserver-watchdog.timer
+        - geoserver-watchdog.service
+      become: yes
+      when: not (geo_watchdog_enabled | bool)
+      failed_when: false
