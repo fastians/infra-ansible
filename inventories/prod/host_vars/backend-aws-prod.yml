@@ -28,6 +28,11 @@ prometheus_instance: backend-aws-prod
 backend_allow_public_web: true
 python_app_git_reset_to_origin: true
 
+# MekBot's OpenRouter model (chat replies, Validate/refine-instructions, explain-error) —
+# was previously unset here, so it always fell back to the template's openai/gpt-4o-mini
+# default regardless of what anyone thought was configured.
+vault_openrouter_model: "anthropic/claude-opus-5"
+
 # Backend-only on API host (geoserver/llmserver run on dedicated GEO/LLM VMs).
 python_apps:
   - name: MEK_LAB_BACKEND
